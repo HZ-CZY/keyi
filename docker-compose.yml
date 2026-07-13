@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  anki-web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=change-this-to-a-random-secret
+      - DB_PATH=/app/data/anki-web.db
+    volumes:
+      - anki_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  anki_data:

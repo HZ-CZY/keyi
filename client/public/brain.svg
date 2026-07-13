@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4338ca"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <!-- Brain shape - dark indigo to purple, contrasts with cyan bg -->
+  <path d="
+    M50 12
+    C35 12 20 20 18 35
+    C16 48 22 56 28 62
+    C32 66 33 72 29 78
+    C24 84 20 88 22 93
+    C24 97 33 99 42 96
+    C48 94 50 90 50 88
+    C50 90 52 94 58 96
+    C67 99 76 97 78 93
+    C80 88 76 84 71 78
+    C67 72 68 66 72 62
+    C78 56 84 48 82 35
+    C80 20 65 12 50 12Z"
+    fill="url(#g)"/>
+  <!-- Center line -->
+  <path d="M50 14 C47 30 47 45 50 55 C53 65 53 80 50 88"
+    fill="none" stroke="#c7d2fe" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+  <!-- Left fold -->
+  <path d="M30 38 C34 42 38 40 42 44"
+    fill="none" stroke="#c7d2fe" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M26 55 C32 58 38 54 44 58"
+    fill="none" stroke="#c7d2fe" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <!-- Right fold -->
+  <path d="M70 38 C66 42 62 40 58 44"
+    fill="none" stroke="#c7d2fe" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M74 55 C68 58 62 54 56 58"
+    fill="none" stroke="#c7d2fe" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <!-- Synapse dots -->
+  <circle cx="28" cy="45" r="2.5" fill="#c7d2fe" opacity="0.5"/>
+  <circle cx="34" cy="72" r="2" fill="#c7d2fe" opacity="0.4"/>
+  <circle cx="72" cy="45" r="2.5" fill="#c7d2fe" opacity="0.5"/>
+  <circle cx="66" cy="72" r="2" fill="#c7d2fe" opacity="0.4"/>
+</svg>
