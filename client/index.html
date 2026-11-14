@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/brain.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png" />
+    <meta name="apple-mobile-web-app-title" content="刻忆" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>刻忆 - 间隔重复学习平台</title>
+
+    <!-- 开屏页样式：随 HTML 一起下载，首帧即可绘制，避免 JS 加载期间白屏 -->
+    <style>
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        opacity: 1;
+        transition: opacity .45s ease, transform .45s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #boot-splash.boot-fade { opacity: 0; transform: scale(1.02); }
+      .bs-mid { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 24px; }
+      .bs-wrap { transform: rotate(-6deg); user-select: none; }
+      .bs-line {
+        position: relative;
+        font-weight: 900;
+        font-size: clamp(28px, 8vw, 44px);
+        white-space: nowrap;
+        line-height: 1.15;
+        letter-spacing: .03em;
+        transform: skewX(-8deg);
+        opacity: 0;
+        animation: bsRise .45s cubic-bezier(.22, 1, .36, 1) forwards;
+      }
+      .bs-line-1 { animation-delay: .1s; }
+      .bs-line-2 { animation-delay: .32s; margin-top: 12px; margin-left: 7%; }
+      .bs-ul {
+        height: 3px;
+        background: #1D4ED8;
+        border-radius: 999px;
+        width: 104%;
+        margin-left: -2%;
+        margin-top: 4px;
+        transform: scaleX(0);
+        transform-origin: left center;
+        animation: bsDraw .34s ease-out forwards;
+      }
+      .bs-ul-1 { animation-delay: .42s; }
+      .bs-ul-2 { animation-delay: .64s; width: 108%; }
+      .bs-blue { color: #1D4ED8; }
+      .bs-orange { color: #F25C05; }
+      .bs-bottom {
+        padding-bottom: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        opacity: 0;
+        animation: bsRise .5s ease forwards;
+        animation-delay: .55s;
+      }
+      .bs-logo { display: flex; align-items: center; gap: 10px; }
+      .bs-logo img { width: 36px; height: 36px; display: block; }
+      .bs-logo span { color: #1D4ED8; font-weight: 900; font-size: 22px; letter-spacing: .12em; }
+      .bs-copy { font-size: 12px; color: #94a3b8; }
+      .bs-icp { font-size: 11px; color: #cbd5e1; text-decoration: none; }
+      @keyframes bsRise {
+        from { opacity: 0; transform: translateY(18px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes bsDraw { to { transform: scaleX(1); } }
+    </style>
+
+    <script>
+      /* 刻忆缓存策略：
+         ① 每次进入后台清理一次 Cache Storage / Service Worker（不刷新页面，避免白屏闪烁）
+         ② 版本检测：发布新版本后自动刷新一次，保证用户总在最新版本
+         HTML 本身 no-store，静态资源带 hash 不可变，因此无需靠整页刷新保证新鲜度。 */
+      (function () {
+        try {
+          function clearAssetCache() {
+            try {
+              if (window.caches && caches.keys) {
+                caches.keys().then(function (keys) {
+                  keys.forEach(function (k) { caches.delete(k); });
+                }).catch(function () {});
+              }
+            } catch (e) {}
+            try {
+              if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                navigator.serviceWorker.getRegistrations().then(function (rs) {
+                  rs.forEach(function (r) { r.unregister(); });
+                }).catch(function () {});
+              }
+            } catch (e) {}
+          }
+
+          // ① 后台清缓存（不 reload）
+          clearAssetCache();
+
+          // ② 版本检测：有新版本才刷新一次
+          fetch('/version.json', { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              var v = String((d && d.version) || '');
+              if (!v) return;
+              var stored = localStorage.getItem('keyi_app_version');
+              if (!stored) {
+                localStorage.setItem('keyi_app_version', v);
+                return;
+              }
+              if (stored !== v) {
+                localStorage.setItem('keyi_app_version', v);
+                clearAssetCache();
+                setTimeout(function () { location.reload(); }, 60);
+              }
+            })
+            .catch(function () { /* 无 version.json 时忽略 */ });
+        } catch (e) { /* 缓存清理失败不影响正常使用 */ }
+      })();
+    </script>
+  </head>
+  <body class="text-gray-900 antialiased">
+    <!-- 开屏页：首屏静态内容，JS 加载完成前就开始展示 -->
+    <div id="boot-splash">
+      <div class="bs-mid">
+        <div class="bs-wrap">
+          <div class="bs-line bs-line-1"><span class="bs-blue">记忆先过遗忘关</span></div>
+          <div class="bs-ul bs-ul-1"></div>
+          <div class="bs-line bs-line-2"><span class="bs-orange">好记性</span><span class="bs-blue">就用刻忆</span></div>
+          <div class="bs-ul bs-ul-2"></div>
+        </div>
+      </div>
+      <div class="bs-bottom">
+        <div class="bs-logo">
+          <img src="/brain.svg" alt="刻忆" />
+          <span>刻忆</span>
+        </div>
+        <p class="bs-copy">Copyright@2020-2026 HZ-CZY All Rights Reserved.</p>
+        <a class="bs-icp" href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备2026085151号-1</a>
+      </div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      /* 开屏页控制：最短展示 1s，等到 React 应用就绪（window.__KEYI_READY__）后再淡出；
+         最多等 6s 兜底；点击可跳过。同一会话内后续刷新不再重复展示。 */
+      (function () {
+        var el = document.getElementById('boot-splash');
+        if (!el) return;
+        var start = Date.now();
+        var warm = false;
+        try { warm = !!sessionStorage.getItem('keyi_splash_shown'); } catch (e) {}
+        var MIN = warm ? 500 : 1000, MAX = 20000, done = false;
+
+        el.addEventListener('click', hide);
+
+        function hide() {
+          if (done || !el) return;
+          done = true;
+          try { sessionStorage.setItem('keyi_splash_shown', '1'); } catch (e) {}
+          var wait = Math.max(0, MIN - (Date.now() - start));
+          setTimeout(function () {
+            el.classList.add('boot-fade');
+            setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 480);
+          }, wait);
+        }
+
+        var t = setInterval(function () {
+          if (window.__KEYI_READY__ || Date.now() - start > MAX) {
+            clearInterval(t);
+            hide();
+          }
+        }, 80);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>TTS 能力探针 · iPad</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 20px 16px 40px;
+    font: 15px/1.6 -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+    background: #f5f6f8; color: #1a1c20;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+  button {
+    width: 100%; padding: 16px; font-size: 17px; font-weight: 600;
+    border: 0; border-radius: 12px; background: #2563d9; color: #fff;
+    margin-bottom: 14px; cursor: pointer;
+  }
+  button:disabled { background: #9aa6bb; }
+  button.ghost { background: #fff; color: #2563d9; border: 1px solid #c7d2e5; font-weight: 500; font-size: 15px; padding: 13px; }
+  .card { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; }
+  .row span:first-child { color: #6b7280; flex: 0 0 auto; white-space: nowrap; }
+  .row span:last-child { font-weight: 600; text-align: right; word-break: break-word; flex: 1 1 auto; min-width: 0; }
+  .verdict { font-size: 17px; font-weight: 700; padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+  .ok { background: #e8f6ee; color: #146b3a; }
+  .warn { background: #fff4e5; color: #8a5300; }
+  .bad { background: #fdecec; color: #a12626; }
+  h2 { font-size: 14px; color: #6b7280; margin: 20px 0 8px; font-weight: 600; }
+  pre {
+    background: #1a1c20; color: #d6dee8; padding: 12px; border-radius: 10px;
+    font: 12px/1.55 ui-monospace, Menlo, monospace; overflow-x: auto;
+    white-space: pre-wrap; word-break: break-all; margin: 0;
+  }
+  .hint { font-size: 13px; color: #6b7280; line-height: 1.7; }
+  .hint b { color: #1a1c20; }
+</style>
+</head>
+<body>
+
+<h1>TTS 能力探针</h1>
+<div class="sub">在 iPad 上点一次，看看能不能拿到时间戳</div>
+
+<button id="go">开始测试</button>
+<button id="stop" class="ghost">停止</button>
+
+<div id="verdict"></div>
+<div class="card" id="env"></div>
+
+<h2>逐句逐句的结果</h2>
+<div class="card" id="lines"></div>
+
+<h2>原始日志</h2>
+<pre id="log">等测试…</pre>
+
+<h2>怎么读这个结果</h2>
+<div class="hint">
+  <b>边界事件（boundary）</b>：有 = 能拿到字级时间戳，动画可以细到字。<br />
+  <b>开始 / 结束（start / end）</b>：有 = 能拿到句级时间戳，够我逐段放板书。<br />
+  <b>两个都没有</b>：说明这台设备连句级都拿不到，只能退回按语速估算的无声模式。<br />
+  <span id="mute-tip"></span>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const out = {
+    env: {},
+    lines: [],
+    boundaryCount: 0,
+    startEndOk: 0,
+  };
+
+  /* 用真实讲题句子，短、带标点，能反映实际切句效果 */
+  const SENTENCES = [
+    '先把动点写成圆心加单位向量的形式。',
+    '数量积展开以后，就变成一个三角函数的最值问题。',
+    '所以最小值是负二。',
+  ];
+
+  const t0 = () => Math.round(performance.now());
+
+  function log(msg) {
+    const el = $('log');
+    const line = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    el.textContent = (el.textContent === '等测试…' ? '' : el.textContent) + line + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function row(k, v) {
+    return '<div class="row"><span>' + k + '</span><span>' + v + '</span></div>';
+  }
+
+  function renderEnv() {
+    const e = out.env;
+    $('env').innerHTML =
+      row('系统', e.platform || '-') +
+      row('浏览器', e.ua || '-') +
+      row('语音引擎', e.hasSynth ? '有' : '无') +
+      row('中文语音数', e.zhCount) +
+      row('默认中文语音', e.zhName || '（未找到）') +
+      row('已实测句数', e.done) +
+      row('句级时间戳', e.startEndOk + ' / ' + e.done) +
+      row('字级边界事件', e.boundaryCount);
+  }
+
+  function renderLines() {
+    $('lines').innerHTML = out.lines.map((l) =>
+      row(l.i + '. ' + l.chars + ' 字', l.state === 'ok'
+        ? (l.ms + ' ms' + (l.boundaries ? ' · 边界 ' + l.boundaries : ' · 无边界'))
+        : l.state)
+    ).join('') || '<div class="row"><span>还没有结果</span><span>-</span></div>';
+  }
+
+  function verdict() {
+    const e = out.env;
+    const el = $('verdict');
+    if (!e.hasSynth) {
+      el.className = 'verdict bad';
+      el.textContent = '这台设备没有语音引擎，TTS 方案不可用。';
+      return;
+    }
+    if (e.done === 0) { el.className = 'verdict warn'; el.textContent = '还没跑完，点上面的按钮。'; return; }
+    if (e.boundaryCount > 0) {
+      el.className = 'verdict ok';
+      el.textContent = '支持字级时间戳，动画可以做到逐字书写。';
+    } else if (e.startEndOk === e.done && e.done > 0) {
+      el.className = 'verdict ok';
+      el.textContent = '支持句级时间戳，动画可以做到逐段展开。';
+    } else if (e.startEndOk > 0) {
+      el.className = 'verdict warn';
+      el.textContent = '句级时间戳部分可用（' + e.startEndOk + '/' + e.done + '），只能做粗略分段。';
+    } else {
+      el.className = 'verdict bad';
+      el.textContent = '拿不到任何时间戳，只能退回按语速估算的无声模式。';
+    }
+  }
+
+  function probeEnv() {
+    const syn = window.speechSynthesis;
+    let zh = [];
+    try { zh = (syn ? syn.getVoices() : []).filter((v) => /^zh/i.test(v.lang || '')); } catch (e) { /* 忽略 */ }
+    out.env = {
+      platform: navigator.platform || navigator.userAgent,
+      ua: (navigator.userAgent || '').replace(/\s+/g, ' ').slice(0, 90),
+      hasSynth: !!syn,
+      zhCount: zh.length,
+      zhName: zh[0] ? zh[0].name + ' (' + zh[0].lang + ')' : '',
+      done: 0,
+      startEndOk: 0,
+      boundaryCount: 0,
+    };
+    renderEnv();
+    verdict();
+    log('voices: ' + (zh.length ? zh.map((v) => v.name + '/' + v.lang).join(', ') : '（空，可能还没加载完）'));
+  }
+
+  let stopped = false;
+
+  function speakOne(text, index) {
+    return new Promise((resolve) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN';
+      u.rate = 1;
+      const syn = window.speechSynthesis;
+      try {
+        const zh = syn.getVoices().filter((v) => /^zh/i.test(v.lang || ''));
+        if (zh[0]) u.voice = zh[0];
+      } catch (e) { /* 忽略 */ }
+
+      const rec = { i: index + 1, chars: text.length, state: 'waiting', ms: 0, boundaries: 0 };
+      let startedAt = 0;
+
+      u.onstart = () => { startedAt = t0(); rec.state = 'speaking'; };
+      u.onboundary = (ev) => {
+        rec.boundaries += 1;
+        out.env.boundaryCount += 1;
+        if (rec.boundaries === 1) log('  ↳ 首个 boundary @ ' + Math.round(ev.charIndex || 0) + ' 字');
+      };
+      u.onend = () => {
+        rec.ms = startedAt ? t0() - startedAt : 0;
+        rec.state = 'ok';
+        out.env.startEndOk += 1;
+        finish();
+      };
+      u.onerror = (ev) => {
+        rec.state = 'err:' + ((ev && ev.error) || 'x');
+        finish();
+      };
+
+      function finish() {
+        out.env.done += 1;
+        out.lines.push(rec);
+        renderEnv(); renderLines(); verdict();
+        log('句' + rec.i + ' → ' + rec.state + ' / ' + rec.ms + 'ms / 边界' + rec.boundaries);
+        resolve();
+      }
+
+      try {
+        syn.speak(u);
+      } catch (e) {
+        rec.state = 'throw';
+        finish();
+      }
+      /* iOS 上偶尔不回调，兜底 */
+      setTimeout(() => {
+        if (rec.state === 'waiting' || rec.state === 'speaking') {
+          rec.state = rec.state === 'speaking' ? 'ok(超时)' : 'no-callback';
+          if (rec.state === 'ok(超时)') out.env.startEndOk += 1;
+          finish();
+        }
+      }, 12000);
+    });
+  }
+
+  async function run() {
+    stopped = false;
+    $('go').disabled = true;
+    $('log').textContent = '';
+    out.lines = []; out.env.done = 0; out.env.startEndOk = 0; out.env.boundaryCount = 0;
+    renderEnv(); renderLines();
+    probeEnv();
+
+    const syn = window.speechSynthesis;
+    if (!syn) { verdict(); $('go').disabled = false; return; }
+
+    /* iOS 需要一次用户手势；这里已经点了按钮，但仍有语音列表为空的情况 */
+    for (let i = 0; i < 30 && syn.getVoices().length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    probeEnv();
+
+    for (let i = 0; i < SENTENCES.length; i++) {
+      if (stopped) break;
+      log('说第 ' + (i + 1) + ' 句…');
+      await speakOne(SENTENCES[i], i);
+      await new Promise((r) => setTimeout(r, 220));
+    }
+
+    log('—— 测试结束 ——');
+    $('go').disabled = false;
+  }
+
+  $('go').addEventListener('click', run);
+  $('stop').addEventListener('click', () => {
+    stopped = true;
+    try { window.speechSynthesis.cancel(); } catch (e) { /* 忽略 */ }
+    $('go').disabled = false;
+    log('已手动停止');
+  });
+
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => probeEnv();
+  }
+  probeEnv();
+
+  /* 静音提示：静音开关打开时不出声，但事件照走 */
+  $('mute-tip').innerHTML = '<br /><b>iPad 侧边静音开关</b>打开时不会出声，但时间戳事件一般仍然触发——正好适合教室。';
+})();
+</script>
+</body>
+</html>

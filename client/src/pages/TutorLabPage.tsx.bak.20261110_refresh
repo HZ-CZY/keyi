@@ -1,0 +1,15 @@
+import { useEffect } from 'react';
+
+/**
+ * /tutor-lab 已改为服务端直出的顶层欧拉白板页（client/public/tutor-lab.html）：
+ * 顶层文档直接加载 APK 白板内核，没有 iframe、没有「经典」皮肤切换。
+ * 这里只把 SPA 内的客户端导航换成整页跳转，让顶层文档接管。
+ */
+export default function TutorLabPage() {
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('web')) {
+      window.location.replace('/tutor-lab?web=1');
+    }
+  }, []);
+  return null;
+}

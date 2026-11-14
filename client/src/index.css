@@ -1,0 +1,912 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════
+   Design Tokens — CSS custom properties
+   ═══════════════════════════════════════════ */
+:root {
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --reveal-delay: 0s;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-bg-strong: rgba(255, 255, 255, 0.88);
+}
+
+/* ═══════════════════════════════════════════
+   Ambient background via pseudo-element
+   — no background-attachment: fixed (forces repaint on scroll)
+   ═══════════════════════════════════════════ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 0% -20%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+  /* paint-order enforced — no repaint on scroll */
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   Base Layer
+   ═══════════════════════════════════════════ */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen text-gray-900 antialiased;
+    font-family:
+      'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB',
+      -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.20);
+  }
+
+  /* Text selection */
+  ::selection {
+    background: rgba(59, 130, 246, 0.20);
+    color: inherit;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Reduce motion — disable ALL animations & force reveal visible */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .reveal, .reveal-scale, .reveal-left,
+    .reveal\:opacity-100, .reveal\:translate-y-0,
+    .reveal\:scale-100, .reveal\:translate-x-0 {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Component Layer
+   ═══════════════════════════════════════════ */
+@layer components {
+  /* ── Glass morphism (optimized) ── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: saturate(160%) blur(8px);
+    -webkit-backdrop-filter: saturate(160%) blur(8px);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  /* Promote glass to GPU layer for scroll-time compositing */
+  .glass, .glass-strong {
+    transform: translateZ(0);
+  }
+
+  /* ── Floating pill nav (Apple-style) ── */
+  .pill-nav {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.06),
+      0 2px 8px rgba(0, 0, 0, 0.03),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+    transform: translateZ(0);
+  }
+
+  /* ── Icon/avatar capsule container ── */
+  .capsule-icon {
+    @apply flex items-center justify-center flex-shrink-0;
+    background: rgba(255, 255, 255, 0.70);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60);
+    transform: translateZ(0);
+  }
+
+  /* ── User name capsule ── */
+  .capsule-user {
+    @apply flex items-center;
+  }
+
+  /* ── Pill nav link (standalone capsule) ── */
+  .pill-link {
+    @apply px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-250 ease-premium;
+  }
+  .pill-link-active {
+    background: rgba(255, 255, 255, 0.90);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.80);
+    @apply text-primary-700 font-semibold;
+  }
+  .pill-link:not(.pill-link-active) {
+    @apply text-gray-500;
+  }
+  .pill-link:not(.pill-link-active):hover {
+    @apply text-gray-800;
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  /* ── Card flip ── */
+  .card-flip-container {
+    perspective: 1200px;
+  }
+  .card-flip-inner {
+    @apply relative w-full h-full;
+    transition: transform 0.6s var(--ease-premium);
+    transform-style: preserve-3d;
+  }
+  .card-flip-inner.flipped {
+    transform: rotateY(180deg);
+  }
+  .card-flip-front,
+  .card-flip-back {
+    @apply absolute inset-0 w-full h-full rounded-2xl;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .card-flip-back {
+    transform: rotateY(180deg);
+  }
+
+  /* ── Premium buttons (only transition what changes) ── */
+  .btn-primary {
+    @apply bg-primary-600 text-white font-medium rounded-xl px-6 py-3
+           hover:bg-primary-700 active:bg-primary-800
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    transition:
+      transform 0.25s var(--ease-premium),
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.20);
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.30), 0 0 40px rgba(59, 130, 246, 0.10);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.20);
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-700 font-medium rounded-xl px-6 py-3
+           hover:bg-gray-50 active:bg-gray-100 border border-gray-200;
+    transition:
+      transform 0.25s var(--ease-premium),
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .btn-rating {
+    @apply flex flex-col items-center justify-center gap-1
+           font-medium rounded-xl px-4 py-3
+           active:scale-95;
+    transition:
+      transform 0.2s var(--ease-premium),
+      box-shadow 0.2s var(--ease-premium);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  .btn-rating:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+  }
+
+  .btn-again { @apply btn-rating bg-red-500 text-white hover:bg-red-600; }
+  .btn-hard  { @apply btn-rating bg-orange-500 text-white hover:bg-orange-600; }
+  .btn-good  { @apply btn-rating bg-green-500 text-white hover:bg-green-600; }
+  .btn-easy  { @apply btn-rating bg-blue-500 text-white hover:bg-blue-600; }
+
+  /* ── Premium input fields ── */
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl
+           focus:outline-none focus:border-transparent
+           text-gray-900 placeholder-gray-400;
+    transition:
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    background: rgba(255, 255, 255, 0.90);
+  }
+  .input-field:focus {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.02),
+      0 0 0 3px rgba(59, 130, 246, 0.15);
+    background: #fff;
+  }
+
+  /* ── Card shadows (multi-layer with color temperature) ── */
+  .card-shadow {
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 4px rgba(0, 0, 0, 0.04),
+      0 2px 8px rgba(37, 99, 235, 0.02);
+  }
+  .card-shadow-hover {
+    transition:
+      transform 0.3s var(--ease-premium),
+      box-shadow 0.3s var(--ease-premium);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+  .card-shadow-hover:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      0 2px 8px rgba(37, 99, 235, 0.04);
+  }
+
+  /* ── Shimmer skeleton ── */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #f0f0f0 25%,
+      #e8e8e8 50%,
+      #f0f0f0 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Scroll-triggered Reveal Animations
+   ═══════════════════════════════════════════ */
+@layer utilities {
+  /* Base hidden state — NO will-change (avoids GPU layer explosion) */
+  .reveal,
+  .reveal-scale,
+  .reveal-left {
+    opacity: 0;
+    transition: opacity 0.6s var(--ease-premium), transform 0.6s var(--ease-premium);
+    transition-delay: var(--reveal-delay, 0s);
+  }
+
+  /* Visible state */
+  .reveal.reveal-visible,
+  .reveal-scale.reveal-visible,
+  .reveal-left.reveal-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Variants */
+  .reveal {
+    transform: translateY(24px);
+  }
+  .reveal-scale {
+    transform: scale(0.95);
+  }
+  .reveal-left {
+    transform: translateX(-20px);
+  }
+
+  /* ── Bold (紫色背景) ── */
+  .study-bold,
+  .study-card b,
+  .study-card strong {
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.10);
+    padding: 0 3px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  /* ── Mark highlight (==text==) ── */
+  .mark-highlight,
+  mark.highlight {
+    background: linear-gradient(120deg, #fde68a 0%, #fde68a 40%, #fbbf24 100%);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  /* ── Skeleton loading animation ── */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* ── Hide scrollbar utility ── */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Progress bar thin variant ── */
+  .progress-thin {
+    @apply h-1.5 bg-gray-100 rounded-full overflow-hidden;
+  }
+  .progress-thin > div {
+    @apply h-full rounded-full;
+    transition: width 0.5s var(--ease-premium);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   首页公告滚动播报（横向跑马灯 · 无缝循环）
+   用法：外层 .ann-marquee = 视口(overflow:hidden)
+        内层 .ann-marquee-track 放「两份完全相同的文本」，
+        动画 0 → -50%，duration 由组件按实测宽度内联（约 80px/秒）。
+   放在 @layer 之外 → 优先级高于层内规则，避免被 utilities 覆盖。
+   ══════════════════════════════════════════════════════════════════ */
+@keyframes ann-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+.ann-marquee-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation-name: ann-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: 45s; /* 兜底值，组件会用内联 animationDuration 覆盖 */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* 滚动视口：左右边缘柔化，文字渐入渐出而不是硬切边 */
+.ann-marquee-viewport {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+
+/* 桌面端把指针停在公告条上可暂停阅读（触屏无 hover，学生端不受影响） */
+.ann-marquee:hover .ann-marquee-track {
+  animation-play-state: paused;
+}
+
+/* 无障碍：用户开启「减弱动态效果」时停止滚动，静态显示开头文字 */
+@media (prefers-reduced-motion: reduce) {
+  .ann-marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* 深色模式：播报条强制保持「白底黑字」——
+   学生常开深色模式，若跟随主题会变成浅字浅底而看不清，故用 !important 锁死。 */
+.dark .ann-marquee {
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28) !important;
+}
+.dark .ann-marquee .ann-marquee-text {
+  color: #0f172a !important;
+}
+.dark .ann-marquee .ann-marquee-title {
+  color: #1d4ed8 !important;
+}
+.dark .ann-marquee .ann-marquee-divider {
+  background-color: rgba(148, 163, 184, 0.8) !important;
+}
+
+/* Keyi UI refresh: shared surfaces and responsive rhythm. */
+.v2-page-shell,
+.keyi-dashboard,
+.keyi-profile,
+.keyi-profile-detail,
+.keyi-arena,
+.keyi-arena-practice,
+.keyi-arena-battle {
+  color: #172033;
+}
+
+.v2-topbar {
+  background: rgba(248, 251, 255, .78);
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  box-shadow: 0 8px 24px rgba(47, 79, 125, .05);
+  backdrop-filter: blur(20px);
+}
+
+.v2-page-content > * {
+  animation: keyi-page-in .42s var(--ease-premium) both;
+}
+
+/* 【2026-10-11 修正】原来这里写的是 `.keyi-dashboard header`（后代选择器），
+   会命中 .keyi-dashboard 内部【所有】<header>，包括渲染在首页里的
+   学习排行榜弹窗的 <header>。而那个弹窗根是 flex-col，它的 header 是
+   flex item —— flex item 上的 `margin-inline: auto` 会让 align-self:stretch
+   失效，元素收缩到内容宽度并居中，于是 header 从 540px 塌成 168px，
+   里面 justify-between 的两端元素全被挤到中间，与绝对定位的标题重叠
+   （用户反馈的「排行榜顶部乱了」）。
+   现改为直接子元素选择器，与旁边的 `.keyi-arena > header` 写法一致：
+   首页顶栏仍是 .keyi-dashboard 的直接子元素（DashboardV2.tsx 根 div → header），
+   而排行榜的 header 隔了一层 modal，不再被误伤。 */
+.keyi-dashboard > header,
+.keyi-arena > header {
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+/* 【2026-10-10 修正】原来这里直接选中 .rounded-3xl，会把「白色描边」
+   无差别地画到首页每一个 rounded-3xl 上。词球图谱的容器
+   （DashboardV2.tsx 里那个 rounded-3xl min-h-[460px] ... 的 div）本身是
+   透明底、只用来包 SVG，于是整块区域在云海背景上显示成一条孤零零的
+   白色圆角线框 —— 就是用户看到的「多余的白色边框」。
+   现在改为只作用于「真有白色面」的元素：白色/毛玻璃底的卡片
+   （bg-white*、glass*），透明容器不再被描边。 */
+.keyi-dashboard .rounded-3xl.bg-white,
+.keyi-dashboard .rounded-3xl[class*="bg-white/"],
+.keyi-dashboard .rounded-3xl.glass,
+.keyi-dashboard .rounded-3xl[class*="glass "],
+.keyi-arena .rounded-3xl.bg-white,
+.keyi-arena .rounded-3xl[class*="bg-white/"],
+.keyi-arena .rounded-3xl.glass,
+.keyi-arena .rounded-3xl[class*="glass "],
+.keyi-shop-page .rounded-3xl.bg-white,
+.keyi-shop-page .rounded-3xl[class*="bg-white/"],
+.keyi-shop-page .rounded-3xl.glass,
+.keyi-shop-page .rounded-3xl[class*="glass "],
+.keyi-profile .rounded-\[20px\] {
+  border: 1px solid rgba(255, 255, 255, .76);
+  box-shadow: 0 16px 38px rgba(53, 82, 125, .10);
+}
+
+.keyi-dashboard .keyi-dashboard-grid > *,
+.keyi-arena .space-y-5 > * {
+  min-width: 0;
+}
+
+.keyi-profile .relative.z-10 {
+  margin-top: -3.5rem;
+}
+
+.keyi-profile .relative.z-10 > .bg-white,
+.keyi-profile-detail main > * {
+  border: 1px solid rgba(255, 255, 255, .86);
+  box-shadow: 0 14px 32px rgba(36, 66, 109, .08) !important;
+}
+
+.keyi-profile .relative.z-10 > .bg-white:hover,
+.keyi-profile-detail main > *:hover {
+  box-shadow: 0 18px 38px rgba(36, 66, 109, .12) !important;
+}
+
+.keyi-shop-page {
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
+.keyi-shop-page > .grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.keyi-settings-tab > [class*="bg-white"] {
+  border-color: rgba(148, 163, 184, .16);
+  box-shadow: 0 14px 32px rgba(36, 66, 109, .07);
+}
+
+.keyi-settings-tab input,
+.keyi-settings-tab textarea,
+.keyi-settings-tab select {
+  background: rgba(248, 250, 253, .86);
+  border-color: rgba(148, 163, 184, .22);
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.keyi-settings-tab input:focus,
+.keyi-settings-tab textarea:focus,
+.keyi-settings-tab select:focus {
+  background: #fff;
+  border-color: rgba(59, 107, 232, .65);
+  box-shadow: 0 0 0 4px rgba(59, 107, 232, .10);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   【2026-10-21】通用液态玻璃（顶部状态胶囊 / 公告条 / 右侧功能栏共用）
+
+   与底部导航同一配方，只是投影改为四向（这些是悬浮小件，不是贴底的条）：
+   背景几乎无色，通透感来自 blur + saturate + brightness。
+   若要整体调浓淡，改这里的四个数值即可，所有玻璃件一起变。
+   ───────────────────────────────────────────────────────────── */
+.keyi-glass {
+  background: rgba(255, 255, 255, .66);
+  -webkit-backdrop-filter: blur(20px) saturate(118%) brightness(1.03);
+  backdrop-filter: blur(20px) saturate(118%) brightness(1.03);
+  border: 1px solid rgba(255, 255, 255, .72);
+  box-shadow:
+    0 6px 20px rgba(30, 60, 110, .10),
+    inset 0 1px 0 rgba(255, 255, 255, .65);
+}
+
+/* 【2026-10-21】答题题干里的「考点字」高亮
+   题干容器本身已经是 font-bold，<strong> 再粗也看不出来（学生反馈「看不清哪个字加粗」）。
+   所以改用「颜色 + 底纹 + 下划线」三重区分，和部落答题面板的 .q-em 保持一致。 */
+.stage-headline strong {
+  color: #2563eb;
+  font-weight: 900;
+  background: rgba(59, 107, 232, .10);
+  border-bottom: 2px solid rgba(59, 107, 232, .38);
+  border-radius: 3px;
+  padding: 0 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* 【2026-10-21】左侧快捷入口（任务/排行榜/实词大赛）
+   原来是三段高饱和橙红渐变 + 彩色投影，在蓝天白云上非常跳，与玻璃化 UI 冲突。
+   改为白玻璃方块 + 彩色线性图标：入口仍然一眼能找到，但不再抢画面的注意力。 */
+.keyi-quick {
+  background: rgba(255, 255, 255, .74);
+  -webkit-backdrop-filter: blur(18px) saturate(130%) brightness(1.04);
+  backdrop-filter: blur(18px) saturate(130%) brightness(1.04);
+  border: 1px solid rgba(255, 255, 255, .82);
+  box-shadow:
+    0 8px 20px -11px rgba(20, 45, 90, .45),
+    inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+
+/* 【2026-10-21】页面主 CTA（个人中心「继续学习」）
+   保留实心蓝的引导力，但用上亮下深的渐变 + 收窄的投影，避免变成一块生硬的蓝砖。 */
+.keyi-cta {
+  background: linear-gradient(150deg, #7BA0F4 0%, #5A85EE 50%, #4A75E6 100%);
+  box-shadow:
+    0 10px 26px -14px rgba(59, 107, 232, .75),
+    inset 0 1px 0 rgba(255, 255, 255, .28);
+  color: #fff;
+  transition: filter .2s ease, transform .18s ease;
+}
+.keyi-cta:hover { filter: brightness(1.04); }
+.keyi-cta:active { transform: scale(.985); filter: brightness(.98); }
+
+/* 【2026-10-21】学习卡主按钮：比原来的实心 #3B6BE8 柔一档
+   原来纯色块 + 重蓝阴影，压在白色玻璃卡上像贴了两块蓝胶带。
+   改成「上亮下深」的渐变 + 顶部内高光 + 收敛的投影，保留可点的重量感但不抢镜。 */
+.study-btn {
+  background: linear-gradient(180deg, rgba(59, 107, 232, .10), rgba(59, 107, 232, .15));
+  color: #2F5BD1;
+  box-shadow:
+    0 2px 8px -5px rgba(59, 107, 232, .40);
+  transition: background .2s ease, transform .18s ease, box-shadow .2s ease;
+}
+.study-btn:hover {
+  background: linear-gradient(180deg, rgba(59, 107, 232, .16), rgba(59, 107, 232, .22));
+  box-shadow:
+    0 4px 12px -6px rgba(59, 107, 232, .45);
+}
+.study-btn:active {
+  transform: scale(.985);
+  background: linear-gradient(180deg, rgba(59, 107, 232, .20), rgba(59, 107, 232, .26));
+}
+
+/* 【2026-10-21】厚玻璃面板：给「学习卡」这类大面积内容容器用。
+   小控件（胶囊/公告）用 .keyi-glass 薄玻璃，内容面板用这一档——
+   背景仍透，但保留足够白衬，标题、进度、说明文字不会糊在壁纸上。 */
+.keyi-glass-panel {
+  background: rgba(255, 255, 255, .86);
+  -webkit-backdrop-filter: blur(44px) saturate(108%) brightness(1.02);
+  backdrop-filter: blur(44px) saturate(108%) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, .78);
+  box-shadow:
+    0 22px 54px -22px rgba(20, 45, 90, .32),
+    inset 0 1px 0 rgba(255, 255, 255, .72);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   【2026-10-21】Apple 风液态玻璃底部导航
+
+   做法对齐 iOS 26 的 Liquid Glass：玻璃层本身几乎无色（12% 白），
+   透明度靠 backdrop-filter 的 blur + saturate + brightness 把背后内容
+   「提亮、提纯」出来，而不是靠加白。
+   顶部 1px 高光 + 极浅投影，让玻璃有厚度感，不会糊成一条白带。
+
+   注意：Tailwind 只生成了 0/5/…/80/85/90/95 档位的 bg-white/N，
+   写 /82、/92 不会产出任何 CSS，所以这里手写数值。
+   ───────────────────────────────────────────────────────────── */
+.v2-bottom-nav--glass {
+  background: rgba(255, 255, 255, .74);
+  -webkit-backdrop-filter: blur(24px) saturate(120%) brightness(1.03);
+  backdrop-filter: blur(24px) saturate(120%) brightness(1.03);
+  border-top: 1px solid rgba(255, 255, 255, .78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .22),
+    0 -4px 16px rgba(30, 60, 110, .05);
+}
+
+/* 玻璃上深灰文字容易发糊：未选中项加深一档，并加一层极淡白色光晕保证可读 */
+.v2-bottom-nav--glass a {
+  color: #475569;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, .5);
+}
+.v2-bottom-nav--glass a:hover {
+  background: rgba(255, 255, 255, .35);
+  color: #334155;
+}
+.v2-bottom-nav--glass a[aria-current="page"] {
+  color: #2563eb;
+  text-shadow: none;
+}
+
+.v2-bottom-nav a {
+  min-height: 48px;
+  border-radius: 16px;
+  transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+
+.v2-bottom-nav a:hover { background: rgba(226, 235, 249, .72); }
+.v2-bottom-nav a:active { transform: scale(.96); }
+
+/* 【2026-10-10】紫色底页面（决斗场大厅/练习/对战）上的底部导航改为实心白，
+   hover 也换成浅灰蓝，避免 82% 白被紫色底染成一片淡紫、文字看不清。 */
+.v2-bottom-nav--solid a { color: #64748b; }
+.v2-bottom-nav--solid a:hover { background: rgba(241, 245, 249, .95); color: #334155; }
+.v2-bottom-nav--solid a[aria-current="page"] { color: #2563eb; font-weight: 600; }
+
+@keyframes keyi-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .v2-topbar { padding-top: max(12px, env(safe-area-inset-top)); }
+  .keyi-dashboard > header,
+  .keyi-arena > header { padding-inline: 16px; }
+  .keyi-dashboard-grid { grid-template-columns: 1fr; }
+  .keyi-profile .relative.z-10 { margin-top: -2.5rem; }
+  .keyi-profile .relative.z-10 > .bg-white { border-radius: 18px; }
+  .keyi-shop-page > .grid { grid-template-columns: 1fr; }
+  .keyi-settings-tab > [class*="bg-white"] { padding: 16px; }
+  .v2-bottom-nav { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   制卡中心 · 富文本字段编辑器（2026-10-12）
+   放在 @layer 之外 → 优先级高于层内规则（同文件既有约定，见上方说明）。
+   ───────────────────────────────────────────────────────────── */
+
+/* 占位文字：contentEditable 内容为空时用 ::before 顶上去
+   （不用 :empty —— 浏览器删空后会留一个 <br>，:empty 会失效） */
+.rich-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* 加粗：编辑器里既有 renderMarkup 产出的 <strong>，也有历史数据的 <b> */
+.rich-editor b,
+.rich-editor strong {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* 高亮兜底：万一出现底色 span（execCommand 兜底路径 / 外部粘入），
+   也长得与 mark.highlight 一致，保证「编辑器里看到的 = 学生看到的」 */
+.rich-editor span[style*="background-color"] {
+  background: linear-gradient(120deg, #fde68a 0%, #fde68a 40%, #fbbf24 100%) !important;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* 空行也要能看到光标（否则末行为空时光标不可见） */
+.rich-editor:focus {
+  outline: none;
+}
+
+/* [2026-10-25] 考察词高亮：紫色字体 + 白色半透明背景 */
+.study-main strong, .study-main b,
+.study-bold strong, .study-bold b {
+  color: #7C3AED;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0 5px;
+  border-radius: 5px;
+}
+
+
+/* ── AI 实验台 · 板书入场动画（2026-11-09） ── */
+@keyframes dtFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dtPopIn {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.dt-fade { animation: dtFadeIn 0.5s ease-out both; }
+.dt-in   { animation: dtFadeIn 0.45s ease-out both; }
+.dt-pop  { animation: dtPopIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-box: fill-box; transform-origin: center; }
+/* ── 欧拉式板书排版（照 board-runtime.css 规格还原）────────────── */
+@font-face {
+  font-family: 'WenKai Board';
+  src: url('/fonts/LXGWWenKai-sub.woff2') format('woff2');
+  font-display: swap;
+  font-weight: 400;
+}
+
+.ol-root {
+  --paper: #fff;
+  --surface: #fffdf8;
+  --reference-paper: #e4ecff;
+  --ink: #1f1a14;
+  --muted-ink: #6b6258;
+  --ol-border: #d8cfc0;
+  --ol-rule: #EDEDED;
+  font-family: 'WenKai Board', "Kaiti SC", "STKaiti", "KaiTi", "楷体", "Songti SC", serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ol-paper {
+  background: var(--surface);
+  white-space: pre-wrap;
+}
+
+.ol-refer {
+  background: var(--reference-paper);
+}
+
+/* 正文段落：18px / 1.75，字距略松，像手写在纸上 */
+.ol-p {
+  font-size: 17.5px;
+  line-height: 1.78;
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+/* 阶段标题：上方 0.5px 细线 + 18px 上留白，小字灰绿 */
+.ol-stage {
+  border-top: 0.5px solid var(--ol-rule);
+  padding-top: 18px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #6f7f72;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ol-stage-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+  flex: 0 0 auto;
+}
+
+/* 独立公式行：居中、大字 */
+.ol-mathline {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 52px;
+  padding: 7px 2px 5px;
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+/* 荧光笔高亮：黄底 + 同色外发光，等价 qb-play-highlight-active */
+.ol-mark {
+  background-color: rgba(255, 204, 0, 0.26);
+  box-shadow: 0 0 0 0.14em rgba(255, 204, 0, 0.26);
+  border-radius: 0.3em;
+}
+
+/* 纸片要点：按 kind 取色，轻微旋转，16px 圆角 */
+.ol-callout {
+  border-radius: 16px;
+  padding: 11px 14px 12px;
+  transform: rotate(-0.5deg);
+  transform-origin: center;
+}
+.ol-callout-title {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 7px;
+}
+.ol-callout-key {
+  background: #FFEFC8;
+}
+.ol-callout-key .ol-callout-title { color: #b83228; }
+.ol-callout-summary { background: #e6f6e6; }
+.ol-callout-summary .ol-callout-title { color: #477443; }
+.ol-callout-warn { background: #fdf0e4; }
+.ol-callout-warn .ol-callout-title { color: #9a5717; }
+.ol-callout-method { background: #eaf1fd; }
+.ol-callout-method .ol-callout-title { color: #3f5f9e; }
+
+/* 逐行出现 */
+@keyframes olLineIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ol-line-in {
+  animation: olLineIn 0.42s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+/* 图块：纸上的示意图，无卡片外壳 */
+.ol-figure {
+  margin: 4px 0 2px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* 分栏细线 */
+.ol-divider-v {
+  border-left: 1px solid rgba(184, 174, 160, 0.42);
+}
+
+/* 播放进度条 */
+.ol-progress {
+  height: 2px;
+  background: #eee9e0;
+  position: relative;
+  overflow: hidden;
+}
+.ol-progress > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #26834a;
+  transition: width 0.4s ease;
+}
+
+/* 公式与行内文字基线对齐（KaTeX 与文楷混排） */
+.ol-p .katex, .ol-callout .katex, .ol-mathline .katex {
+  font-size: 1.02em;
+}
+
+/* 滚动条隐藏，像 App */
+.ol-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
+}
+.ol-scroll::-webkit-scrollbar { display: none; }

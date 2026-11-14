@@ -1,0 +1,681 @@
+/**
+ * /tutor-lab · Web 宿主（顶层文档，无 iframe）
+ * ───────────────────────────────────────────────────────────────
+ * 替代 APK 里 assets/board-host/bridge.js 的原生宿主：
+ *   · 准备进度：后端 SSE 的真实节点 → api.setOpeningPreparationProgress
+ *               （欧拉内核自己创建题目骨架 + 右栏清单，不是定时器假装的）
+ *   · 题目识别：/api/tutor/ocr
+ *   · 讲稿生成：/api/tutor/explain-stream（流式阶段 + 完整 plan）
+ *   · 板书渲染：planToBoardScene → api.renderDoc（左题目/图 + 右分步讲解）
+ */
+
+import { planToBoardScene, setSceneWidth, splitMath } from '/quizboard/board-scene.web.mjs';
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const token = () => localStorage.getItem('token') || '';
+/* 站点登录态有两路：localStorage 里的 token（Authorization 头）和 httpOnly
+   cookie keyi_token（浏览器自动带，authMiddleware 会自己解析）。
+   没有 localStorage token 时**绝不能**发空的 "Bearer "：后端会优先解析这个
+   空头并 401，反而把 cookie 兜底那条路堵死。 */
+const authHeaders = () => {
+  const t = token();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
+
+let api = null;
+let currentQuestion = '';
+let currentPlan = null;
+let rows = [];
+let inFlight = false;
+let toastTimer = 0;
+
+/* ── 清单：与欧拉原生 preparation 的 steps 一一对应 ─────────────── */
+const ORDER = ['received', 'reading', 'thinking', 'board'];
+const LABELS = {
+  received: { doing: '题目收到啦', done: '题目已收到' },
+  reading: { doing: '我在仔细读题', done: '题意已梳理' },
+  thinking: { doing: '我在梳理解题思路', done: '解题思路已梳理' },
+  board: { doing: '正在准备板书', done: '讲解已就绪' },
+};
+
+function skeletonHeight() {
+  return Math.min(300, Math.max(180, Math.round(window.innerHeight * 0.3)));
+}
+
+function pushProgress(visible = true) {
+  if (!api) return;
+  api.setOpeningPreparationProgress({
+    visible,
+    skeletonHeight: visible ? skeletonHeight() : 0,
+    hint: visible ? '先想一想：这道题可以往哪个方向拆？' : null,
+    steps: rows.map((r) => ({ key: r.key, label: r.label, completed: r.completed })),
+  });
+}
+
+/* ── 加载态文档：内核自己的 reader-text-loading 出题目骨架 ─────────
+   APK 的 layoutOpeningPreparationScene 只给了空 problem.stem section，
+   不写 preparation:'loading' 就没有那三条灰线。这里补上骨架文档，
+   让「左栏骨架/题目渐现 + 右栏准备清单」都由欧拉内核原生渲染。 */
+function sceneBase() {
+  const board = $('board');
+  const W = setSceneWidth(board?.clientWidth || window.innerWidth);
+  const inner = Math.max(560, W - 40 - 56 * 2);
+  const ref = Math.round(inner * 0.49);
+  return {
+    id: 'tutor-loading', type: 'board_doc', version: 1,
+    width: W, height: Math.max(900, window.innerHeight),
+    elements: [], connectors: [],
+    layout: {
+      type: 'split_workspace', positioned: false,
+      stem: 'reference_lane', orientation: 'columns',
+      gap: 40, width: W,
+      safeArea: { top: 56, right: 56, bottom: 56, left: 56 },
+      boardDraw: { enabled: true },
+      columns: [
+        { id: 'left', lane: 'reference', width: ref, prefers: ['problem_source', 'top_to_bottom'] },
+        { id: 'right', lane: 'solution', width: inner - ref, prefers: ['solution_main', 'top_to_bottom'] },
+      ],
+    },
+  };
+}
+
+/** question 为空 → 三条骨架；有题目 → 直接渐现题目（含 MathJax 公式） */
+function loadingDoc(question = '') {
+  const block = {
+    id: 'opening-reference', type: 'section', kind: 'problem.stem',
+    visual_id: 'problem-stem', layout: { column: 'left', pane: 'reference' },
+    parts: question ? splitMath(String(question).replace(/\s*\n+\s*/g, ' ')) : [],
+  };
+  if (!question) {
+    block.preparation = 'loading';
+    block.preparation_label = '正在识别题目…';
+  }
+  return { ...sceneBase(), blocks: [block] };
+}
+
+async function showLoading(question = '') {
+  if (!api) return;
+  await api.renderDoc(loadingDoc(question));
+  pushProgress(true);   // renderDoc 重建 DOM 后，重新把清单挂回右栏
+}
+
+/** 后端真实节点 → 内核准备清单；条目按阶段逐条长出来，完成一条才露下一条 */
+function applyStage(s) {
+  const idx = ORDER.indexOf(s?.key);
+  if (idx < 0 || !api) return;
+  const count = Math.min(ORDER.length, idx + 1 + (s.completed ? 1 : 0));
+  rows = ORDER.slice(0, count).map((key, i) => {
+    const done = i < idx || (i === idx && !!s.completed);
+    let label = done ? LABELS[key].done : LABELS[key].doing;
+    if (i === idx && !done && typeof s.label === 'string' && s.label.trim()) label = s.label.trim();
+    return { key, label, completed: done };
+  });
+  pushProgress(true);
+}
+
+function toast(msg, isError = false) {
+  const el = $('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = isError ? 'show error' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+/* ── 会话状态 ───────────────────────────────────────────────────── */
+async function startSession(question = '') {
+  currentQuestion = question;
+  currentPlan = null;
+  inFlight = true;
+  document.body.classList.add('in-session');
+  $('session-title').textContent = question ? question.replace(/\s+/g, ' ').slice(0, 30) : '正在准备讲解';
+  rows = [{ key: 'received', label: LABELS.received.doing, completed: false }];
+  // 直接输入 → 题目立即渐现；拍照 → 先出三条骨架，OCR 回来再换真题目
+  await showLoading(question);
+}
+
+function endSession() {
+  inFlight = false;
+  document.body.classList.remove('in-session');
+  try { api?.clear?.(); } catch { /* 忽略 */ }
+  try { api?.setOpeningPreparationProgress?.({ visible: false, steps: [], skeletonHeight: 0 }); } catch { /* 忽略 */ }
+}
+
+/* ── 后端：OCR / SSE 讲题 ───────────────────────────────────────── */
+async function ocr(file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  const r = await fetch('/api/tutor/ocr', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: fd,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error || '题目识别失败');
+  const q = String(j?.question || j?.latex || '').trim();
+  if (!q) throw new Error('没认出题目，重拍一张或直接把题目打出来');
+  return q;
+}
+
+/** SSE：fetch + ReadableStream，按帧解 event/data；阶段一到达就推给内核 */
+async function explainStream(question) {
+  const r = await fetch('/api/tutor/explain-stream', {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, grade: '高二' }),
+  });
+  if (!r.ok || !r.body) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j?.error || `讲题服务异常（${r.status}）`);
+  }
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let plan = null;
+  let error = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let cut;
+    while ((cut = buf.indexOf('\n\n')) >= 0) {
+      const frame = buf.slice(0, cut);
+      buf = buf.slice(cut + 2);
+      let event = 'message';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      let obj;
+      try { obj = JSON.parse(data); } catch { continue; }
+      if (event === 'stage') applyStage(obj);
+      else if (event === 'plan') plan = obj;
+      else if (event === 'error') error = String(obj?.message || '讲解失败');
+    }
+  }
+  if (error) throw new Error(error);
+  if (!plan) throw new Error('讲稿为空，请重试');
+  return plan;
+}
+
+/* ── 逐段播放 ───────────────────────────────────────────────────
+   欧拉内核**只认 speech_mark**：play-schedule 里 scheduleEffectTimes 对没有
+   speech_mark 的效果直接返回 null，at_ms 是死字段（实测 t=1.2 就把全部内容
+   一次性画完了）。所以这里照 TTS 的规矩来：
+
+     1. play 里每个 effect 挂 speech_mark: 'm<stage>'；
+     2. 本地 speechSynthesis 逐句朗读，onstart/onboundary 上报真实音频进度；
+     3. 把进度折算成 clock 事件的 audio_ms 喂给内核，内核按 mark 偏移在
+        对应时刻放行该段的 show 效果 → 语音念到哪，板书就写到哪。
+
+   不依赖服务端 TTS，不依赖 onboundary（iPad 有，桌面 Chrome 中文音色没有
+   时就用时长估算兜底），两条路都能走。 */
+const ZI_MS = 250;                  // 中文 ~4 字/秒（iPad 婷婷 3.65~4.25）
+const MARK_GAP_MS = 220;            // 段间呼吸，也让内核的 lead 有时间
+const TTS_ON = (() => {
+  try { return localStorage.getItem('tutor_tts') !== 'off'; } catch { return true; }
+})();
+
+/* 把讲解文本变成「能念的句子」，同时记下每句里头几个字在音频里的起点。
+   LaTeX 直接念出来是噪音（学生听到「反斜杠 f r a c」），所以整段公式念成「式子」。 */
+function speakable(t) {
+  return String(t || '')
+    .replace(/\$\$[\s\S]*?\$\$/g, '，式子，')
+    .replace(/\$[^$]*\$/g, ' 式子 ')
+    .replace(/\\[a-zA-Z]+/g, '')
+    .replace(/[{}^_]/g, '')
+    .replace(/[，。；、]/g, '$&')   // 标点保留，TTS 靠它断句
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function ziCount(s) {
+  const m = String(s || '').match(/[\u4e00-\u9fa5]|[A-Za-z0-9]+/g);
+  return m ? m.length : 0;
+}
+
+function estMs(t) {
+  return Math.max(1500, Math.round(ziCount(speakable(t)) * ZI_MS));
+}
+
+/** 按 stage_index 切段：每段一个 speech_mark，块按 stage 顺序挂 show */
+function buildPlay(doc, steps) {
+  const byStage = new Map();
+  for (const b of doc.blocks || []) {
+    const si = Number(b.stage_index) || 0;
+    if (!si) continue;
+    if (!byStage.has(si)) byStage.set(si, []);
+    byStage.get(si).push(b);
+  }
+  if (!byStage.size) return null;
+
+  const last = Math.max(...byStage.keys());
+  const marks = [];
+  const segs = [];
+  const effects = [];
+  let at = 0;
+  for (let i = 1; i <= last; i++) {
+    const bs = byStage.get(i) || [];
+    if (!bs.length) continue;
+    const text = String(steps[i - 1]?.text || '');
+    const mark = `m${i}`;
+    const clean = speakable(text);
+    const dur = estMs(text);
+    marks.push({ name: mark, offset_ms: at });
+    segs.push({ mark, at, dur, stage: i, text, spoken: clean });
+    for (const b of bs) {
+      effects.push({
+        effect_id: `shw_${b.id}`,
+        kind: 'show',
+        speech_mark: mark,
+        duration_ms: 760,
+        block_id: b.id,
+        target: b.id,
+        block: b,
+      });
+    }
+    at += dur + MARK_GAP_MS;
+  }
+  return {
+    play: { id: `tutor_${Date.now()}`, speech: { spoken: segs.map((s) => s.spoken).join(' '), subtitle: '' }, effects },
+    marks,
+    segs,
+    totalMs: at,
+  };
+}
+
+/* ── 时钟：把 TTS 的真实进度折算成 audio_ms ───────────────────── */
+function createTalkClock(anim, api, pid) {
+  const now = () => (window.performance?.now?.() ?? Date.now());
+  const total = anim.totalMs;
+  const marks = anim.marks;
+  const syn = window.speechSynthesis;
+  let t0 = 0;             // 播放起点（perf）
+  let stage = 0;          // 正在念第几段
+  let spokenMs = 0;       // 本段已念掉的音频毫秒（估算）
+  let segStart = 0;       // 本段在总时间轴上的起点
+  let segDur = 0;
+  let uttStartedAt = 0;
+  let ended = false;
+  let timer = 0;
+  let pending = [];       // play_exec_id 就绪前攒下的补发事件
+  let execId = '';        // 内核给本次 play 分配的执行 id
+
+  /* play_exec_id 还没拿到时，内核会把这些事件当「缺 exec」拒掉；
+     先攒在 pending 里，start() 拿到 id 后统一补发。 */
+  const apiSend = (ev) => {
+    if (pending) pending.push(ev);
+    else { try { api.handleSpeechPlaybackEvent({ play_id: pid, play_exec_id: execId, ...ev }); } catch { /* 忽略 */ } }
+  };
+  const clockAt = (ms) => {
+    apiSend({ type: 'clock', audio_ms: Math.max(0, Math.round(ms)), playing: true, host_at_ms: Date.now() });
+  };
+  const markReached = (name) => {
+    apiSend({ type: 'mark', name, event: 'MarkReached' });
+  };
+
+  /* 估算当前应该播到多少毫秒：段起点 + 段内进度 */
+  const position = () => {
+    if (!syn || syn.speaking === false) {
+      /* 没有语音：纯时长推进 */
+      return Math.min(total, segStart + (now() - uttStartedAt));
+    }
+    const frac = segDur > 0 ? Math.min(1, spokenMs / Math.max(1, segDur)) : 1;
+    return Math.min(total, segStart + frac * segDur);
+  };
+
+  const tick = () => {
+    if (ended) return;
+    clockAt(position());
+    timer = requestAnimationFrame(tick);
+  };
+
+  const speakSeg = () => {
+    if (ended || stage >= anim.segs.length) { finish(); return; }
+    const seg = anim.segs[stage];
+    segStart = seg.at;
+    segDur = seg.dur;
+    spokenMs = 0;
+    markReached(seg.mark);
+    if (!syn || !TTS_ON || !seg.spoken) {
+      /* 无语音：按估算时长直接推进，到点进下一段 */
+      uttStartedAt = now();
+      setTimeout(() => { stage += 1; speakSeg(); }, seg.dur);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(seg.spoken.slice(0, 220));
+    u.lang = 'zh-CN';
+    u.rate = 1;
+    const zh = (() => { try { return syn.getVoices().filter((v) => /^zh/i.test(v.lang || '')); } catch { return []; } })();
+    if (zh[0]) u.voice = zh[0];
+    uttStartedAt = now();
+    u.onstart = () => { uttStartedAt = now(); };
+    u.onboundary = (e) => {
+      /* 字级边界：拿 charIndex 折成本段内的音频毫秒 */
+      if (typeof e.charIndex === 'number') {
+        const frac = Math.min(1, e.charIndex / Math.max(1, [...seg.spoken].length));
+        spokenMs = frac * segDur;
+      }
+    };
+    u.onend = () => {
+      spokenMs = segDur;
+      clockAt(seg.at + segDur);
+      stage += 1;
+      setTimeout(speakSeg, 60);
+    };
+    u.onerror = () => { spokenMs = segDur; stage += 1; setTimeout(speakSeg, 60); };
+    try { syn.speak(u); } catch { stage += 1; setTimeout(speakSeg, 60); }
+  };
+
+  const finish = () => {
+    if (ended) return;
+    ended = true;
+    cancelAnimationFrame(timer);
+    clockAt(total);
+    apiSend({ type: 'complete' });
+    window.__tutorAnim.done = true;
+  };
+
+  return {
+    start(id, playId) {
+      const exec = String(id || '');
+      if (!exec) return false;
+      execId = exec;
+      /* 先登记标记表，再 started、再 clock —— 顺序错了内核不认 */
+      api.handleSpeechPlaybackEvent({
+        type: 'mark_timings',
+        play_id: playId,
+        play_exec_id: exec,
+        marks,
+        duration_ms: total,
+      });
+      api.handleSpeechPlaybackEvent({ type: 'started', play_id: playId, play_exec_id: exec, audio_ms: 0, playing: true, host_at_ms: Date.now() });
+      const queued = pending;
+      pending = null;
+      for (const ev of queued) {
+        try { api.handleSpeechPlaybackEvent({ ...ev, play_id: playId, play_exec_id: exec }); } catch { /* 忽略 */ }
+      }
+      t0 = now();
+      uttStartedAt = t0;
+      tick();
+      speakSeg();
+      return true;
+    },
+    get stage() { return stage; },
+  };
+}
+
+/** 等内核真的把 play 建起来（拿到 play_exec_id 才算数） */
+async function waitPlayExec(playId, ms = 1500) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    const list = window.__quizboardPlayExecutions || [];
+    const hit = list.filter((x) => x && (!playId || x.play_id === playId)).pop();
+    if (hit?.play_exec_id && hit.state !== 'completed') return hit;
+    await sleep(40);
+  }
+  return null;
+}
+
+function stopSpeak() {
+  try { window.speechSynthesis?.cancel(); } catch { /* 忽略 */ }
+}
+
+/* ── 完整板书 ───────────────────────────────────────────────────── */
+async function renderFull(plan, question) {
+  const board = $('board');
+  setSceneWidth(board?.clientWidth || window.innerWidth);
+  const doc = planToBoardScene({ ...plan, problem: question || plan.problem }, 'tutor');
+
+  // 先撤掉内核的占位场景，再渲染真实文档；否则进度层会盖在板书上
+  api.setOpeningPreparationProgress({ visible: false, steps: [], skeletonHeight: 0 });
+  rows = [];
+
+  /* 起始文档只留题目与图形（不含 stage_index 的块），讲解内容交给 play 逐段加。
+     这样不必依赖 hide/before_speech —— 它读的是 {effect:{...}} 包装结构，
+     自己拼容易拼错，而「起始文档里没有」是最稳的写法。 */
+  const anim = buildPlay(doc, plan.steps || []);
+  const baseDoc = anim
+    ? { ...doc, blocks: (doc.blocks || []).filter((b) => !Number(b.stage_index)) }
+    : doc;
+  await api.renderDoc(baseDoc);
+
+  currentPlan = plan;
+  $('session-title').textContent = String(plan?.title || '讲解').slice(0, 30);
+  inFlight = false;
+  window.__tutorRendered = {
+    blocks: doc.blocks?.length || 0,
+    figures: (doc.blocks || []).filter((b) => b.type === 'figure').length,
+    width: doc.width,
+  };
+
+  window.__tutorAnim = { ...(anim || {}), startedAt: Date.now(), done: !anim, stageIndex: 0 };
+  if (!anim) return;
+
+  /* 逐段播放：起始文档已就位 → play 建立 → 拿到 play_exec_id → 用 TTS 时钟推进 */
+  stopSpeak();
+  const talk = createTalkClock(anim, api, anim.play.id);
+  window.__tutorTalk = talk;
+  let ret = null;
+  try {
+    ret = api.handleRuntimeMessage({ type: 'play', scope: 'board', play: anim.play, doc });
+    if (ret && ret.then) ret = await ret;
+  } catch { /* 内核拒播时走纯渲染，页面不白屏 */ }
+  if (ret && ret.accepted === false) {
+    await api.renderDoc(doc);           // 兜底：直接把完整板书铺上去
+    window.__tutorAnim.done = true;
+    return;
+  }
+  const exec = await waitPlayExec(anim.play.id);
+  if (exec) {
+    talk.start(exec.play_exec_id, exec.play_id || anim.play.id);
+  } else {
+    await api.renderDoc(doc);
+    window.__tutorAnim.done = true;
+  }
+}
+
+/* ── 主流程 ─────────────────────────────────────────────────────── */
+async function run(question) {
+  const q = String(question || '').trim();
+  if (!q || !api || inFlight) return;
+  await startSession(q);
+  applyStage({ key: 'received', completed: true });   // 题目真的到手了
+  try {
+    const plan = await explainStream(q);
+    applyStage({ key: 'board', completed: true });     // 板书内容已生成
+    await renderFull(plan, q);
+    remember(q);
+  } catch (e) {
+    toast(e?.message || '讲解失败，请重试', true);
+    setTimeout(endSession, 900);
+  }
+}
+
+async function runWithFile(file) {
+  if (!file || !api || inFlight) return;
+  await startSession('');                              // 左栏先出三条题目骨架
+  applyStage({ key: 'received', completed: true });   // 照片已收到
+  try {
+    const q = await ocr(file);
+    currentQuestion = q;
+    $('session-title').textContent = q.replace(/\s+/g, ' ').slice(0, 30);
+    await showLoading(q);                              // 题目渐现（骨架 → 真文字）
+    applyStage({ key: 'reading', completed: true });  // OCR 真的返回了
+    const plan = await explainStream(q);
+    applyStage({ key: 'board', completed: true });
+    await renderFull(plan, q);
+    remember(q);
+  } catch (e) {
+    toast(e?.message || '识别失败，请重试', true);
+    setTimeout(endSession, 900);
+  }
+}
+
+/* ── 离线样题：不调后端，直接出完整欧拉板书（用于快速核对视觉） ──── */
+const DEMO = {
+  title: '圆上动点向量数量积最小值',
+  problem:
+    '已知圆 $C:(x-1)^2+(y-\\sqrt{3})^2=1$，点 $A(\\sqrt{3},1)$，$P$ 为圆上动点，\n求 $\\overrightarrow{CP}\\cdot\\overrightarrow{OA}$ 的最小值。',
+  think: ['看到「数量积最小」，先想能不能把动点方向单独拎出来。', '什么时候两个向量夹角的余弦最小？'],
+  steps: [
+    {
+      index: 1, title: '建系与定点',
+      text: '先把坐标系、圆心 $C(1,\\sqrt{3})$ 和定点 $A(\\sqrt{3},1)$ 画出来。',
+      board: [
+        { op: 'axis', xmin: -1, xmax: 4, ymin: -1, ymax: 4 },
+        { op: 'circle', cx: 1, cy: 1.73, r: 1 },
+        { op: 'point', name: 'O', x: 0, y: 0 },
+        { op: 'point', name: 'C', x: 1, y: 1.73 },
+        { op: 'point', name: 'A', x: 1.73, y: 1 },
+        { op: 'line', from: [0, 0], to: [1.73, 1], label: 'OA', dash: true },
+      ],
+    },
+    {
+      index: 2, title: '设动点并连向量',
+      text: '设 $P$ 在圆上，连 $\\overrightarrow{CP}$ 与 $\\overrightarrow{OA}$。',
+      board: [
+        { op: 'orbit', name: 'P', cx: 1, cy: 1.73, r: 1, from: 0, to: 360 },
+        { op: 'vector', from: 'C', to: 'P', label: 'CP' },
+        { op: 'polygon', points: ['O', 'A', 'P'], fill: 'none' },
+      ],
+    },
+    {
+      index: 3, title: '求最小值',
+      text: '当 $\\overrightarrow{CP}$ 与 $\\overrightarrow{OA}$ 反向时取最小。',
+      board: [
+        { op: 'move', name: 'P', to: [0.13, 1.73] },
+        { op: 'angle', at: 'C', label: '180°', x: 0.5, y: 2.0 },
+      ],
+    },
+  ],
+  keyMethod: '把动向量投影到定向量方向，最值在共线反向时取到',
+  pitfall: { wrong: '直接对坐标求导', right: '用投影定方向再算模长' },
+  answer: '$\\sqrt{5-2\\sqrt{3}}$',
+};
+
+async function showDemo() {
+  if (!api || inFlight) return;
+  await startSession(DEMO.problem.replace(/\s+/g, ' ').slice(0, 30));
+  rows = ORDER.map((k) => ({ key: k, label: LABELS[k].done, completed: true }));
+  pushProgress(true);
+  await sleep(420);   // 样题是离线直出，留一帧让完整清单可见
+  try { await renderFull(DEMO, DEMO.problem); }
+  catch (e) { toast(e?.message || '样题渲染失败', true); endSession(); }
+}
+
+/* ── 历史 ───────────────────────────────────────────────────────── */
+const readHistory = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem('tutor-history') || '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 6) : [];
+  } catch { return []; }
+};
+function remember(q) {
+  const next = [q, ...readHistory().filter((x) => x !== q)].slice(0, 6);
+  try { localStorage.setItem('tutor-history', JSON.stringify(next)); } catch { /* 忽略 */ }
+  drawHistory();
+}
+function drawHistory() {
+  const box = $('history');
+  if (!box) return;
+  const list = readHistory();
+  box.replaceChildren();
+  for (const q of list) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = q.replace(/\s+/g, ' ').slice(0, 26);
+    b.title = q;
+    b.onclick = () => { $('question').value = q; run(q); };
+    box.appendChild(b);
+  }
+}
+
+/* ── 事件绑定 ───────────────────────────────────────────────────── */
+function bind() {
+  $('btn-home-back').onclick = () => { window.location.href = '/'; };
+  $('btn-back').onclick = () => endSession();
+  $('btn-again').onclick = () => {
+    const q = currentQuestion || $('question').value;
+    endSession();
+    setTimeout(() => { if (q) run(q); }, 60);
+  };
+
+  const pick = (inputId) => $(inputId)?.click();
+  $('btn-camera').onclick = () => pick('file-camera');
+  $('mini-camera').onclick = () => pick('file-camera');
+  $('btn-gallery').onclick = () => pick('file-gallery');
+  $('mini-gallery').onclick = () => pick('file-gallery');
+  $('file-camera').onchange = (e) => { const f = e.target.files?.[0]; if (f) runWithFile(f); e.target.value = ''; };
+  $('file-gallery').onchange = (e) => { const f = e.target.files?.[0]; if (f) runWithFile(f); e.target.value = ''; };
+
+  $('btn-send').onclick = () => run($('question').value);
+  $('question').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run($('question').value); }
+  });
+  $('btn-demo').onclick = () => showDemo();
+  $('btn-clear-history').onclick = () => {
+    try { localStorage.removeItem('tutor-history'); } catch { /* 忽略 */ }
+    drawHistory();
+  };
+
+  // 视口变化后按新宽度重排（内核自己也会重排，这里补一次画布宽度）
+  let rt = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      if (currentPlan && api && document.body.classList.contains('in-session')) {
+        const board = $('board');
+        setSceneWidth(board?.clientWidth || window.innerWidth);
+        const doc = planToBoardScene({ ...currentPlan, problem: currentQuestion || currentPlan.problem }, 'tutor');
+        api.renderDoc(doc).catch(() => {});
+      }
+    }, 260);
+  });
+}
+
+/* ── 启动：等内核 ready（board_embed.mjs 顶层 await，兄弟 module 不保证顺序） ── */
+async function boot() {
+  // UI 先绑好：万一登录态校验没过，左上角「返回主站」仍然可点，不会把人困死
+  bind();
+  drawHistory();
+
+  /* 登录态必须由服务端判定。keyi_token 是 httpOnly，JS 读不到；
+     只看 localStorage 会把「靠 cookie 登录」的已登录用户误判成未登录，
+     紧接着 replace('/') —— 表现就是点进 AI 实验室又被弹回首页。 */
+  let loggedIn = false;
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'same-origin', headers: authHeaders() });
+    loggedIn = r.ok;
+  } catch { loggedIn = false; }
+  if (!loggedIn) {
+    const hint = $('boot-hint');
+    if (hint) hint.textContent = '登录已失效，请点左上角返回主站重新登录';
+    toast('登录已失效，请返回主站重新登录', true);
+    return;
+  }
+
+  for (let i = 0; i < 400 && !window.__quizboardReady; i++) await sleep(100);
+  if (!window.__quizboardReady) {
+    const hint = $('boot-hint');
+    if (hint) hint.textContent = '白板加载失败，请刷新页面重试';
+    toast('白板内核加载失败，请刷新重试', true);
+    return;
+  }
+  api = await window.__quizboardReady;
+  window.__tutorApi = api;
+  // 内核就绪后才放开首页动作，避免首屏资源加载期间点了没反应
+  document.querySelectorAll('.entry, .send, #btn-demo, #mini-camera, #mini-gallery')
+    .forEach((el) => { el.disabled = false; });
+  $('boot-hint')?.classList.add('hidden');
+  window.__tutorReady = true;
+
+  // URL 带 ?q= 时直接开讲（便于从站内其它页面深链）
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) { $('question').value = q; run(q); }
+}
+
+boot();

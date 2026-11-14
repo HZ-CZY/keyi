@@ -1,0 +1,375 @@
+import { catchUpPendingReplies } from './lib/auto-reply';
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { WebSocketServer } from 'ws';
+import { IncomingMessage } from 'http';
+import authRoutes from './routes/auth';
+import suggestionRoutes from './routes/suggestions';
+import wordbookRoutes from './routes/wordbook';
+import analyticsRoutes from './routes/analytics';
+import deckRoutes from './routes/decks';
+import cardRoutes from './routes/cards';
+import noteRoutes from './routes/notes';
+import importRoutes from './routes/import';
+import adminRoutes from './routes/admin';
+import adminModerationRoutes from './routes/admin-moderation';
+import adminAiImportRoutes from './routes/admin-ai-import';
+import adminAiChatRoutes from './routes/admin-ai-chat';
+import adminChangelogRoutes, { publicRouter as changelogPublicRoutes } from './routes/admin-changelog';
+import tutorSurveyRoutes from './routes/tutor-survey';
+import tutorLabRoutes from './routes/tutor-lab';
+// [2026-11-12] 云端讲解视频：前端传裁剪后的题目图 → 排队 → 驱动 redroid APK 导出 MP4
+import lessonVideoRoutes from './routes/lesson-video';
+import translateRoutes from './routes/translate';
+import dailyRoutes from './routes/daily';
+import dictRoutes from './routes/dict';
+import announcementsRoutes, { publicRouter as announcementsPublicRoutes } from './routes/announcements';
+import readingsRoutes from './routes/readings';
+import wordnetRoutes from './routes/wordnet';
+import checkinRoutes from './routes/checkin';
+import roadmapRoutes from './routes/roadmap';
+import marketingRoutes from './routes/marketing';
+import battleRoutes from './routes/battles';
+import coinsRoutes from './routes/coins';
+import arenaRoutes from './routes/arena';
+import contestRoutes, { settleContestPrizes } from './routes/contest';
+import tasksRoutes from './routes/tasks';
+import adminTasksRoutes from './routes/admin-tasks';
+import courseRoutes from './routes/course';
+import welfareRoutes from './routes/welfare';
+/* 商城：学生端 /api/shop（商品/购买/背景图），管理端 /api/admin/shop（改价/退款/清理） */
+import shopRoutes from './routes/shop';
+import adminShopRoutes from './routes/admin-shop';
+/* 刻忆觉醒（部落）—— 路由体在 src/routes/village.ts（由线上编译产物落成源码，整体 @ts-nocheck） */
+import villageRoutes, { assertCostTableConsistent } from './routes/village';
+import { authMiddleware, JWT_SECRET } from './middleware/auth';
+import jwt from 'jsonwebtoken';
+import { Response, NextFunction } from 'express';
+import { getDb } from './db/database';
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Trust proxy so req.ip reads X-Forwarded-For (real client IP behind nginx)
+//
+// 【2026-09-12 安全修复】原为 `true` —— 表示信任任意层数的代理，此时 Express 取
+// X-Forwarded-For 的**最左值**，而该值完全由客户端控制。后果有两个：
+//   1. login_logs 记录的客户端 IP 可被伪造，安全审计失去意义；
+//   2. 新增的限流中间件以 req.ip 为计数维度，可被一行请求头绕过。
+// 改为 'loopback'：只信任本机 nginx。nginx 的 $proxy_add_x_forwarded_for 会把
+// 真实客户端 IP 追加到最右，Express 从右往左跳过受信跳数后取到的即为真实 IP，
+// 客户端伪造的左侧值会被忽略。
+app.set('trust proxy', 'loopback');
+
+// Middleware
+/* ── CORS（2026-10-01 安全修复）────────────────────────────────────
+   原先是裸 `app.use(cors())` —— 无参数即 `Access-Control-Allow-Origin: *`，
+   意味着任意站点都能用用户的浏览器凭证（cookie 已改为 httpOnly，浏览器
+   仍会自动携带）去请求本站接口。
+   现在改为**白名单 + 同源**：
+     · 生产环境前后端同源（Express 直接托管 client/dist），浏览器同源请求
+       根本不走 CORS，所以收紧对正常使用零影响；
+     · 开发环境（Vite 5173 / CRA 3000）显式放行，避免本地联调被打断；
+     · 可用环境变量 CORS_ORIGINS（逗号分隔）追加其它来源（如备用域名）。
+   注意：不设 `credentials: true` 的 * 组合（浏览器本身也会拒绝）。 */
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...String(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+];
+app.use(
+  cors({
+    origin(origin, cb) {
+      // 无 Origin 头 = 同源请求 / curl / 服务端调用 → 放行
+      if (!origin) return cb(null, true);
+      if (ALLOWED_ORIGINS.indexOf(origin) >= 0) return cb(null, true);
+      // 同源的前端（生产：Express 托管 dist）也放行
+      cb(null, false);
+    },
+    credentials: true,
+  })
+);
+/* ── 安全响应头（2026-10-01 新增）──────────────────────────────────
+   项目此前没有任何安全头。这里加最小可用集合：
+     · X-Frame-Options: SAMEORIGIN —— 防点击劫持（村庄页尤其需要：
+       它是全屏 canvas，被第三方 iframe 嵌进去可以诱导玩家误操作）；
+     · X-Content-Type-Options: nosniff —— 防 MIME 嗅探导致的脚本执行；
+     · Referrer-Policy —— 跨站跳转时不泄漏带 token 的 URL（若有）；
+     · CSP：**刻意保持宽松**，因为游戏/编辑器依赖内联脚本与 blob worker。
+       只加最关键的 frame-ancestors 与 object-src，避免一上线就把站点打白。
+       （完整的 CSP 收紧需要逐页回归，不在本次安全修复范围内。） */
+app.use((_req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'");
+  next();
+});
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+/* ───────────────────── 2026-10-23 紧急停服：分阶段收缩服务 ─────────────────────
+ * 背景：PHP 高危漏洞需要停机加固。公告承诺：
+ *   · 17:00 起只保留首页与学习复习
+ *   · 19:00 起全面停服（由 cron 执行 systemctl stop）
+ * 本中间件负责第一阶段的接口层限制：命中名单的模块一律 503，
+ * 其余接口（decks/cards/notes/daily/announcements/auth…）不受影响，
+ * 保证学习复习与公告查看正常。
+ * 管理员豁免：故障排查、改公告、恢复服务都需要能进后台。
+ * 时间写死为本日两个时点，过期后本块可整体删除。
+ * ─────────────────────────────────────────────────────────────────────── */
+// [2026-10-24] 停机维护中间件已移除：服务恢复正常，全站接口放行
+
+// API Routes
+// [2026-10-24] 登录锁 + 开放初期入场限流（20 起步，每 90 秒 +20，封顶 200）
+if (process.env.KEYI_LOGIN_LOCK === '1') {
+  const LOGIN_OPEN_AT = new Date('2026-10-24T15:00:00+08:00').getTime();
+  const entryHits: number[] = [];
+  app.use(['/api/auth/login'], (_req: any, res: Response, next: NextFunction) => {
+    const now = Date.now();
+    if (now < LOGIN_OPEN_AT) {
+      res.status(403).json({ error: 'login_locked', message: '登录将于 15:00 开放，请稍后再试。', openAt: LOGIN_OPEN_AT });
+      return;
+    }
+    // 每 90 秒上限 +20，20 起步，封顶 200
+    const cap = Math.min(10 + Math.floor((now - LOGIN_OPEN_AT) / 90000) * 20, 200);
+    // 滑动窗口：只统计最近 60 秒内放行的登录请求
+    while (entryHits.length && now - entryHits[0] > 60000) entryHits.shift();
+    if (entryHits.length >= cap) {
+      res.status(429).json({ code: 'QUEUED', error: '当前进入人数较多，正在排队，请稍候…', cap, retryAfter: 6 });
+      return;
+    }
+    entryHits.push(now);
+    next();
+  });
+  // 注册：15:00 前关闭，之后正常
+  app.use(['/api/auth/register'], (_req: any, res: Response, next: NextFunction) => {
+    if (Date.now() < LOGIN_OPEN_AT) {
+      res.status(403).json({ error: 'login_locked', message: '登录将于 15:00 开放，请稍后再试。', openAt: LOGIN_OPEN_AT });
+      return;
+    }
+    next();
+  });
+}
+
+app.use('/api/auth', authRoutes);
+app.use('/api/suggestions', suggestionRoutes);
+app.use('/api/tutor-survey', tutorSurveyRoutes);
+app.use('/api/tutor', tutorLabRoutes);
+app.use('/api/lesson-video', lessonVideoRoutes);
+app.use('/api/wordbook', wordbookRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/decks', deckRoutes);
+app.use('/api/cards', cardRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/import', importRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminModerationRoutes);
+app.use('/api/admin', adminAiImportRoutes);
+app.use('/api/admin', adminAiChatRoutes);
+app.use('/api/admin', adminChangelogRoutes);
+app.use('/api', changelogPublicRoutes);
+app.use('/api/translate', translateRoutes);
+/* 每日时政：现抓人民日报电子版头版标题，只读接口 */
+app.use('/api/daily', dailyRoutes);
+app.use('/api/dict', dictRoutes);
+app.use('/api/admin', announcementsRoutes);
+app.use('/api', announcementsPublicRoutes);
+app.use('/api', readingsRoutes);
+app.use('/api/wordnet', wordnetRoutes);
+app.use('/api/checkin', checkinRoutes);
+/* 站点升级进度（2026-11-06）：设置页「站点升级进度」，学生只读 */
+app.use('/api/roadmap', roadmapRoutes);
+app.use('/api/marketing', marketingRoutes);
+app.use('/api/battles', authMiddleware, battleRoutes);
+app.use('/api/coins', authMiddleware, coinsRoutes);
+app.use('/api/arena', authMiddleware, arenaRoutes);
+app.use('/api/contest', authMiddleware, contestRoutes);
+app.use('/api/tasks', authMiddleware, tasksRoutes);
+app.use('/api/admin/tasks', adminTasksRoutes);
+app.use('/api/course', courseRoutes);
+app.use('/api/welfare', authMiddleware, welfareRoutes);
+app.use('/api/shop', authMiddleware, shopRoutes);
+app.use('/api/admin/shop', adminShopRoutes);
+/* ── 部落（刻忆觉醒）学生端下线闸门 ──────────────────────────────
+   【2026-10-14 按需求】学生端先下线，管理员保留（继续验收/调试）。
+
+   为什么必须拦在服务端：前端 FeatureGuard 只管路由跳转，学生直接调 API、
+   或者把本地 flag 改成 true 都能绕过 —— 前端拦截只是体验，服务端才是闸门。
+
+   判定与全局开关同源（feature_flags.village），所以后台一关，
+   前端入口、前端路由、服务端接口三处同时生效，且**不需要重新构建前端**：
+     · 前端 → /api/feature-flags 返回 village=false → 入口隐藏 + FeatureGuard 拦截
+     · 后端 → 本中间件返回 503
+   管理员两处均豁免（见 isAdminRequest 与 /api/feature-flags 里的豁免）。
+   ──────────────────────────────────────────────────────────────── */
+function isAdminRequest(req: any): boolean {
+  try {
+    const h = req.headers?.authorization;
+    if (!h || typeof h !== 'string' || !h.startsWith('Bearer ')) return false;
+    const decoded = jwt.verify(h.slice(7), JWT_SECRET) as { userId?: number };
+    if (!decoded || !decoded.userId) return false;
+    const row = getDb().prepare('SELECT role FROM users WHERE id = ?').get(decoded.userId) as
+      | { role?: string }
+      | undefined;
+    return !!row && row.role === 'admin';
+  } catch {
+    /* token 无效/过期一律按「不是管理员」处理 —— 兜底永远偏向更严格的一侧 */
+    return false;
+  }
+}
+
+function villageMaintenanceGate(req: any, res: Response, next: any): void {
+  try {
+    if (isAdminRequest(req)) return next();
+    const row = getDb()
+      .prepare("SELECT enabled, expire_at FROM feature_flags WHERE key = 'village'")
+      .get() as { enabled?: number; expire_at?: number | null } | undefined;
+    /* 开关行不存在时按「开」处理（与其他模块一致 —— 前端拿不到值也兜底视为开），
+       避免一次误删就把部落永久锁死。 */
+    const nowSec = Math.floor(Date.now() / 1000);
+    const on = !row || (row.enabled === 1 && !(row.expire_at != null && nowSec >= row.expire_at));
+    if (!on) {
+      res.status(503).json({ error: '部落功能正在维护中，请稍后再来~', code: 'VILLAGE_OFFLINE' });
+      return;
+    }
+  } catch {
+    /* 查询异常按放行处理，不因一次 DB 抖动把整个模块锁死 */
+  }
+  next();
+}
+
+app.use('/api/village', authMiddleware, villageMaintenanceGate, villageRoutes);
+
+// 全局功能开关（公开只读：开关是站点级权威配置，未登录访客也需感知
+// 模块下架状态，否则前端拿不到值会兜底视为"开"而错误放行）
+app.get('/api/feature-flags', (req: any, res: Response) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare('SELECT key, enabled, expire_at FROM feature_flags').all() as {
+      key: string;
+      enabled: number;
+      expire_at: number | null;
+    }[];
+    // 【2026-10-11】expire_at 支持「限时开启」：非空且已过期 → 视为关闭。
+    // 前端 isFeatureEnabled() 会因此返回 false，入口与角标一并自动下架，
+    // 到点无需人工操作、也无需重新构建前端。
+    const nowSec = Math.floor(Date.now() / 1000);
+    const flags: Record<string, boolean> = {};
+    for (const r of rows) {
+      const expired = r.expire_at != null && nowSec >= r.expire_at;
+      flags[r.key] = r.enabled === 1 && !expired;
+    }
+    /* 【2026-10-14 按需求】管理员豁免「模块下架」。
+       部落等模块只对学生端下线，管理员要能照常进入验收/调试。
+       本接口是公开的（未登录访客也需感知下架状态），所以这里手动解析
+       Authorization 头；解析失败/未登录一律按匿名处理，不因 token 异常而放行。 */
+    if (isAdminRequest(req)) {
+      flags.village = true;
+    }
+
+    res.json(flags);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve uploaded avatars
+app.use('/uploads/avatars', express.static(path.join(__dirname, '..', 'public', 'avatars')));
+// Serve uploaded homepage backgrounds (商城「更换首页背景图片」)
+app.use('/uploads/backgrounds', express.static(path.join(__dirname, '..', 'public', 'backgrounds')));
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve static files in production
+// == 老路由 302（P1 竞技场合并）：训练场 / 决斗场 合并为 /arena，保留旧书签 ==
+const ARENA_LEGACY = ['/training', '/training/', '/battle', '/battle/'];
+for (const legacy of ARENA_LEGACY) {
+  app.get(legacy, (_req, res) => {
+    res.redirect(302, '/arena');
+  });
+}
+
+if (process.env.NODE_ENV === 'production') {
+  const clientPath = path.join(__dirname, '..', '..', 'client', 'dist');
+  /* 欧拉讲题 /tutor-lab：顶层独立文档，直接跑 APK 白板内核。
+     必须放在 express.static 与 SPA 兜底之前，否则会被 index.html 接管
+     变成 React 页面（进而需要 iframe 才能嵌入内核）。 */
+  app.get('/tutor-lab', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
+    res.sendFile(path.join(clientPath, 'tutor-lab.html'));
+  });
+  app.use(express.static(clientPath, {
+    setHeaders(res, filePath) {
+      // HTML 与版本文件：每次都要拿最新（配合前端的自动清缓存刷新）
+      if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
+        res.setHeader('Cache-Control', 'no-store, must-revalidate');
+      } else if (filePath.includes(`${require('path').sep}assets${require('path').sep}`)) {
+        /* ⚠️ 保持 must-revalidate，不要改回 immutable。
+           2026-09-30 曾因「文件名没变、内容变了」+ immutable 让 iPad 永远拿到旧
+           chunk（旧 chunk 指向的兄弟文件已改名 → 404 被 SPA 兜底成 HTML → 白屏）。
+           现在虽然改成了正规构建（每次都有新 hash），但本项目的运维习惯是「紧急时
+           允许直接改 dist 顶一下」—— 那种情况下 immutable 会让修复对老设备不可见。
+           max-age=0 + must-revalidate 每次回源，命中 ETag 就是 304，代价极小。 */
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      }
+    },
+  }));
+  /* 静态资源找不到时直接 404，绝不能落到 SPA 兜底返回 index.html：
+     浏览器会把 HTML 当字体/脚本解析（invalid sfntVersion: <!DO），
+     白板内核的 document.fonts.load 要一直等到超时，首屏能卡十几秒。 */
+  app.get('*', (req, res, next) => {
+    const ext = path.extname(req.path).toLowerCase();
+    const assetExt = ['.js', '.mjs', '.css', '.woff2', '.woff', '.ttf', '.otf', '.eot',
+                      '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.json', '.map', '.wasm'];
+    if (ext && ext !== '.html' && (req.path.startsWith('/quizboard/') || assetExt.includes(ext))) {
+      res.status(404).end('Not Found');
+      return;
+    }
+    next();
+  });
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
+      res.sendFile(path.join(clientPath, 'index.html'));
+  });
+}
+
+
+const server = app.listen(PORT, () => {
+  catchUpPendingReplies();
+  /* 每 10 分钟补一次：限流/超时丢掉的反馈不能永久烂在人工队列里。
+     只捞 24 小时内 reply 为空的，入队有去重，安全。 */
+  setInterval(() => {
+    try {
+      catchUpPendingReplies(10);
+    } catch (e: any) {
+      console.warn('[auto-reply] 定时补偿异常:', e?.message);
+    }
+  }, 10 * 60_000).unref();
+  console.log(`刻忆 Server running on http://localhost:${PORT}`);
+  /* 自检：刻忆觉醒的造价表是否与游戏 config.js 仍然对得上。
+     不一致不会崩服务，只会让玩家遇到「扣款被拒」或「标价与实扣不符」，
+     属于最难排查的一类问题 —— 启动时喊一声最划算。 */
+  try {
+    assertCostTableConsistent();
+  } catch (e) {
+    console.error(e);
+  }
+  /* 实词大赛奖励：若已过 2026-10-24 结算日，启动时补一次结算（幂等，只发一次） */
+  try {
+    settleContestPrizes();
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+export default app;

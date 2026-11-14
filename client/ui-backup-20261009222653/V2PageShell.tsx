@@ -1,0 +1,71 @@
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { api } from '../../../lib/api';
+import { useAuth } from '../../../context/AuthContext';
+import BottomNav from './BottomNav';
+
+/**
+ * V2 page shell — shared chrome for every v2 sub-page:
+ *   - Same light blue-white gradient backdrop as the v2 dashboard
+ *   - Top bar: back arrow + title + dark-mode toggle
+ *   - Optional sticky bottom nav (App-style)
+ */
+export default function V2PageShell({
+  title,
+  children,
+  backTo = '/',
+  showBottomNav = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  backTo?: string;
+  showBottomNav?: boolean;
+}) {
+
+
+  // Heartbeat — keep logged-in users marked as online (was in legacy TopHeaderLayout)
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    const beat = () => api.auth.heartbeat().catch(() => {});
+    beat();
+    const interval = setInterval(beat, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  return (
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Extremely subtle light blue-white gradient backdrop — matches v2 dashboard */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-sky-100/60 via-white to-indigo-100/60" />
+      </div>
+
+      {/* Top bar */}
+      <header className="px-4 md:px-8 pt-5 pb-3 flex items-center gap-3 sticky top-0 z-30">
+        <Link
+          to={backTo}
+          className="shrink-0 w-9 h-9 rounded-full glass flex items-center justify-center hover:scale-105 transition-transform shadow-sm"
+          aria-label="返回"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-600" />
+        </Link>
+        <h1 className="text-lg font-bold text-slate-800">{title}</h1>
+              </header>
+
+      {/* Content */}
+      <main className="px-4 md:px-8 pb-4">{children}</main>
+
+      {/* Footer — copyright + ICP */}
+      <footer className="text-center px-4 pb-24 text-xs text-slate-400">
+        @2026刻忆间隔学习平台 by HZ-CZY&nbsp;&nbsp;|&nbsp;&nbsp;
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
+          粤ICP备2026085151号-1
+        </a>
+      </footer>
+
+      {/* Bottom nav */}
+      {showBottomNav && <BottomNav />}
+    </div>
+  );
+}

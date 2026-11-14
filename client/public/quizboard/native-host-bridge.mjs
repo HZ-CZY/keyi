@@ -1,0 +1,1 @@
+export function createNativeHostBridge(e){const t="string"==typeof e?.__quizboardHostPageNonce?e.__quizboardHostPageNonce:null;return function(o){try{const n=e?.webkit?.messageHandlers?.quizboardHost;return!!n&&(n.postMessage(t?{...o,host_page_nonce:t}:o),!0)}catch(e){return!1}}}

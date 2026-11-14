@@ -1,0 +1,433 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════
+   Design Tokens — CSS custom properties
+   ═══════════════════════════════════════════ */
+:root {
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --reveal-delay: 0s;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-bg-strong: rgba(255, 255, 255, 0.88);
+}
+
+/* ═══════════════════════════════════════════
+   Ambient background via pseudo-element
+   — no background-attachment: fixed (forces repaint on scroll)
+   ═══════════════════════════════════════════ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 0% -20%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+  /* paint-order enforced — no repaint on scroll */
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   Base Layer
+   ═══════════════════════════════════════════ */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen text-gray-900 antialiased;
+    font-family:
+      'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB',
+      -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.20);
+  }
+
+  /* Text selection */
+  ::selection {
+    background: rgba(59, 130, 246, 0.20);
+    color: inherit;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Reduce motion — disable ALL animations & force reveal visible */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .reveal, .reveal-scale, .reveal-left,
+    .reveal\:opacity-100, .reveal\:translate-y-0,
+    .reveal\:scale-100, .reveal\:translate-x-0 {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Component Layer
+   ═══════════════════════════════════════════ */
+@layer components {
+  /* ── Glass morphism (optimized) ── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: saturate(160%) blur(8px);
+    -webkit-backdrop-filter: saturate(160%) blur(8px);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  /* Promote glass to GPU layer for scroll-time compositing */
+  .glass, .glass-strong {
+    transform: translateZ(0);
+  }
+
+  /* ── Floating pill nav (Apple-style) ── */
+  .pill-nav {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.06),
+      0 2px 8px rgba(0, 0, 0, 0.03),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+    transform: translateZ(0);
+  }
+
+  /* ── Icon/avatar capsule container ── */
+  .capsule-icon {
+    @apply flex items-center justify-center flex-shrink-0;
+    background: rgba(255, 255, 255, 0.70);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60);
+    transform: translateZ(0);
+  }
+
+  /* ── User name capsule ── */
+  .capsule-user {
+    @apply flex items-center;
+  }
+
+  /* ── Pill nav link (standalone capsule) ── */
+  .pill-link {
+    @apply px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-250 ease-premium;
+  }
+  .pill-link-active {
+    background: rgba(255, 255, 255, 0.90);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.80);
+    @apply text-primary-700 font-semibold;
+  }
+  .pill-link:not(.pill-link-active) {
+    @apply text-gray-500;
+  }
+  .pill-link:not(.pill-link-active):hover {
+    @apply text-gray-800;
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  /* ── Card flip ── */
+  .card-flip-container {
+    perspective: 1200px;
+  }
+  .card-flip-inner {
+    @apply relative w-full h-full;
+    transition: transform 0.6s var(--ease-premium);
+    transform-style: preserve-3d;
+  }
+  .card-flip-inner.flipped {
+    transform: rotateY(180deg);
+  }
+  .card-flip-front,
+  .card-flip-back {
+    @apply absolute inset-0 w-full h-full rounded-2xl;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .card-flip-back {
+    transform: rotateY(180deg);
+  }
+
+  /* ── Premium buttons (only transition what changes) ── */
+  .btn-primary {
+    @apply bg-primary-600 text-white font-medium rounded-xl px-6 py-3
+           hover:bg-primary-700 active:bg-primary-800
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    transition:
+      transform 0.25s var(--ease-premium),
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.20);
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.30), 0 0 40px rgba(59, 130, 246, 0.10);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.20);
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-700 font-medium rounded-xl px-6 py-3
+           hover:bg-gray-50 active:bg-gray-100 border border-gray-200;
+    transition:
+      transform 0.25s var(--ease-premium),
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .btn-rating {
+    @apply flex flex-col items-center justify-center gap-1
+           font-medium rounded-xl px-4 py-3
+           active:scale-95;
+    transition:
+      transform 0.2s var(--ease-premium),
+      box-shadow 0.2s var(--ease-premium);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  .btn-rating:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+  }
+
+  .btn-again { @apply btn-rating bg-red-500 text-white hover:bg-red-600; }
+  .btn-hard  { @apply btn-rating bg-orange-500 text-white hover:bg-orange-600; }
+  .btn-good  { @apply btn-rating bg-green-500 text-white hover:bg-green-600; }
+  .btn-easy  { @apply btn-rating bg-blue-500 text-white hover:bg-blue-600; }
+
+  /* ── Premium input fields ── */
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl
+           focus:outline-none focus:border-transparent
+           text-gray-900 placeholder-gray-400;
+    transition:
+      box-shadow 0.25s var(--ease-premium),
+      background-color 0.25s var(--ease-premium);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    background: rgba(255, 255, 255, 0.90);
+  }
+  .input-field:focus {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.02),
+      0 0 0 3px rgba(59, 130, 246, 0.15);
+    background: #fff;
+  }
+
+  /* ── Card shadows (multi-layer with color temperature) ── */
+  .card-shadow {
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 4px rgba(0, 0, 0, 0.04),
+      0 2px 8px rgba(37, 99, 235, 0.02);
+  }
+  .card-shadow-hover {
+    transition:
+      transform 0.3s var(--ease-premium),
+      box-shadow 0.3s var(--ease-premium);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+  .card-shadow-hover:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      0 2px 8px rgba(37, 99, 235, 0.04);
+  }
+
+  /* ── Shimmer skeleton ── */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #f0f0f0 25%,
+      #e8e8e8 50%,
+      #f0f0f0 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Scroll-triggered Reveal Animations
+   ═══════════════════════════════════════════ */
+@layer utilities {
+  /* Base hidden state — NO will-change (avoids GPU layer explosion) */
+  .reveal,
+  .reveal-scale,
+  .reveal-left {
+    opacity: 0;
+    transition: opacity 0.6s var(--ease-premium), transform 0.6s var(--ease-premium);
+    transition-delay: var(--reveal-delay, 0s);
+  }
+
+  /* Visible state */
+  .reveal.reveal-visible,
+  .reveal-scale.reveal-visible,
+  .reveal-left.reveal-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Variants */
+  .reveal {
+    transform: translateY(24px);
+  }
+  .reveal-scale {
+    transform: scale(0.95);
+  }
+  .reveal-left {
+    transform: translateX(-20px);
+  }
+
+  /* ── Bold (紫色背景) ── */
+  .study-bold,
+  .study-card b,
+  .study-card strong {
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.10);
+    padding: 0 3px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  /* ── Mark highlight (==text==) ── */
+  .mark-highlight,
+  mark.highlight {
+    background: linear-gradient(120deg, #fde68a 0%, #fde68a 40%, #fbbf24 100%);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  /* ── Skeleton loading animation ── */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* ── Hide scrollbar utility ── */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Progress bar thin variant ── */
+  .progress-thin {
+    @apply h-1.5 bg-gray-100 rounded-full overflow-hidden;
+  }
+  .progress-thin > div {
+    @apply h-full rounded-full;
+    transition: width 0.5s var(--ease-premium);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   首页公告滚动播报（横向跑马灯 · 无缝循环）
+   用法：外层 .ann-marquee = 视口(overflow:hidden)
+        内层 .ann-marquee-track 放「两份完全相同的文本」，
+        动画 0 → -50%，duration 由组件按实测宽度内联（约 80px/秒）。
+   放在 @layer 之外 → 优先级高于层内规则，避免被 utilities 覆盖。
+   ══════════════════════════════════════════════════════════════════ */
+@keyframes ann-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+.ann-marquee-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation-name: ann-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: 45s; /* 兜底值，组件会用内联 animationDuration 覆盖 */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* 滚动视口：左右边缘柔化，文字渐入渐出而不是硬切边 */
+.ann-marquee-viewport {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+
+/* 桌面端把指针停在公告条上可暂停阅读（触屏无 hover，学生端不受影响） */
+.ann-marquee:hover .ann-marquee-track {
+  animation-play-state: paused;
+}
+
+/* 无障碍：用户开启「减弱动态效果」时停止滚动，静态显示开头文字 */
+@media (prefers-reduced-motion: reduce) {
+  .ann-marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* 深色模式：播报条强制保持「白底黑字」——
+   学生常开深色模式，若跟随主题会变成浅字浅底而看不清，故用 !important 锁死。 */
+.dark .ann-marquee {
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28) !important;
+}
+.dark .ann-marquee .ann-marquee-text {
+  color: #0f172a !important;
+}
+.dark .ann-marquee .ann-marquee-title {
+  color: #1d4ed8 !important;
+}
+.dark .ann-marquee .ann-marquee-divider {
+  background-color: rgba(148, 163, 184, 0.8) !important;
+}

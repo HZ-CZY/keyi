@@ -1,0 +1,188 @@
+/**
+ * 刻忆 交互式终端（真正的 PTY 版）  2026-10-10  (by CZY)
+ * ------------------------------------------------------------------
+ * 【为什么重写】
+ * 原实现用 child_process.spawn('bash', ['--login'])：
+ *   - 没有配置 stdio，stdin/stdout 是普通 pipe，不是终端设备；
+ *   - 没有 PTY，所以 bash 不会认为自己连着终端：没有提示符、没有交互式补全、
+ *     没有作业控制、没有颜色、ls 不排多列、密码类提示直接读不到；
+ *   - 最要命的是 **Ctrl+C 完全无效**：\x03 只有在「标准输入是终端」时才会被
+ *     行规程翻译成 SIGINT；stdin 是 pipe 时它只是一个普通字节，shell 会忽略它。
+ *     实测（pipe 里写 \x03，循环照跑 SPIN_9..SPIN_13 不带停）已确认。
+ *     用户的感受就是「这个 root shell 根本用不了」。
+ * 【现在】
+ * 改用 node-pty 创建真正的伪终端，等价于 ssh 进来的体验：
+ * 提示符 / 补全 / Ctrl+C(SIGINT) / Ctrl+Z(SIGTSTP) / Ctrl+D(EOF) /
+ * resize(TIOCSWINSZ) / 颜色 / 全屏程序(vim/top) 全部正常。
+ * ------------------------------------------------------------------
+ */
+import { Router, Response } from 'express';
+import * as pty from 'node-pty';
+import { adminMiddleware, AuthRequest } from '../middleware/auth';
+
+const router = Router();
+router.use(adminMiddleware);
+
+interface Session {
+  pty: pty.IPty;
+  cols: number;
+  rows: number;
+  createdAt: number;
+  lastActiveAt: number;
+  /** 是否已经结束（收到 exit 事件） */
+  exited: boolean;
+}
+
+const sessions = new Map<string, Session>();
+const sessionWsMap = new Map<string, any>();
+
+/** 终端输出统一转成 WS 文本帧发给前端 xterm */
+function streamOutput(sessionId: string, data: string) {
+  const ws = sessionWsMap.get(sessionId);
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'output', data }));
+  }
+}
+
+/** 会话运行期间的启动横幅 —— 让用户一眼看出终端真的活了 */
+const BANNER =
+  '\u001b[1;36m刻忆交互式终端（真 PTY）\u001b[0m\r\n' +
+  '输入命令并回车执行。Ctrl+C 中断 · Ctrl+D 退出 · Ctrl+L 清屏。\r\n\r\n';
+
+// ── 创建会话 ────────────────────────────────────────────────
+router.post('/create', (req: AuthRequest, res: Response) => {
+  try {
+    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const cols = parseInt(req.body.cols) || 80;
+    const rows = parseInt(req.body.rows) || 24;
+
+    /* 用 node-pty 起一个真终端。
+       注意几个参数：
+       - name: 必须是合法 terminfo 名，xterm-256color 让颜色/光标键都正常
+       - shell: 直接用 /bin/bash -l（登录 shell，会读 /root/.bashrc、PATH 等）
+       - cwd:  /root/project-backup，和原行为保持一致
+       - env:  透传环境并显式设置 TERM/LANG，避免中文乱码、方向键乱码 */
+    const ptyProc = pty.spawn('/bin/bash', ['-l'], {
+      name: 'xterm-256color',
+      cols,
+      rows,
+      cwd: '/root/project-backup',
+      env: {
+        ...(process.env as { [key: string]: string }),
+        TERM: 'xterm-256color',
+        LANG: 'zh_CN.UTF-8',
+        LC_ALL: 'zh_CN.UTF-8',
+        COLORTERM: 'truecolor',
+      },
+    });
+
+    const session: Session = {
+      pty: ptyProc,
+      cols,
+      rows,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+      exited: false,
+    };
+    sessions.set(sessionId, session);
+
+    // PTY 的输出是【合并流】（stdout+stderr 同一个 fd），这正是终端要的行为
+    ptyProc.onData((data: string) => {
+      streamOutput(sessionId, data);
+    });
+
+    ptyProc.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
+      session.exited = true;
+      sessions.delete(sessionId);
+      const ws = sessionWsMap.get(sessionId);
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'closed', code: exitCode, signal }));
+      }
+    });
+
+    res.json({ sessionId });
+  } catch (err: any) {
+    console.error('[Terminal] create failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── 调整尺寸（真 PTY 下这个才真正生效）────────────────────────
+router.post('/resize', (req: AuthRequest, res: Response) => {
+  try {
+    const { sessionId, cols, rows } = req.body;
+    const session = sessions.get(sessionId);
+    if (!session) {
+      res.status(404).json({ error: '会话不存在' });
+      return;
+    }
+    const c = Math.max(20, parseInt(cols) || session.cols);
+    const r = Math.max(5, parseInt(rows) || session.rows);
+    /* 【2026-10-10】原实现是 execSync('stty cols .. rows .. < /dev/tty')，
+       那是在【后端进程自己】的 tty 上执行，和用户会话无关，纯无效。
+       node-pty 的 resize() 才是正确做法：它会向 PTY 内核设备发 TIOCSWINSZ，
+       于是 vim / top / less 这些全屏程序和 bash 的换行宽度都会跟着变。 */
+    if (!session.exited) {
+      try {
+        session.pty.resize(c, r);
+      } catch (e: any) {
+        console.warn('[Terminal] resize 失败:', e.message);
+      }
+    }
+    session.cols = c;
+    session.rows = r;
+    session.lastActiveAt = Date.now();
+    res.json({ success: true, cols: c, rows: r });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── 会话列表 ────────────────────────────────────────────────
+router.get('/sessions', (_req: AuthRequest, res: Response) => {
+  const list: { sessionId: string; cols: number; rows: number; pid: number }[] = [];
+  sessions.forEach((s, id) => {
+    list.push({ sessionId: id, cols: s.cols, rows: s.rows, pid: s.pty.pid });
+  });
+  res.json(list);
+});
+
+// ── 结束会话 ────────────────────────────────────────────────
+router.post('/kill', (req: AuthRequest, res: Response) => {
+  try {
+    const { sessionId } = req.body;
+    const session = sessions.get(sessionId);
+    if (session) {
+      try {
+        session.pty.kill('SIGHUP');
+      } catch (e) {}
+      sessions.delete(sessionId);
+      sessionWsMap.delete(sessionId);
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* 僵尸会话回收：30 分钟一次，干掉「没有被 WS 占用」且「空闲超 30 分钟」的会话。
+   否则长期使用会累积大量 bash 进程。 */
+setInterval(() => {
+  const IDLE_MS = 30 * 60 * 1000;
+  const now = Date.now();
+  const dead: string[] = [];
+  sessions.forEach((s, id) => {
+    if (!sessionWsMap.has(id) && now - s.lastActiveAt > IDLE_MS) dead.push(id);
+  });
+  dead.forEach((id) => {
+    const s = sessions.get(id);
+    try { s?.pty.kill('SIGHUP'); } catch (e) {}
+    sessions.delete(id);
+    sessionWsMap.delete(id);
+  });
+  if (dead.length) console.log(`[Terminal] 回收僵尸会话 ${dead.length} 个`);
+}, 30 * 60 * 1000).unref?.();
+
+export type { Session };
+export { sessions, sessionWsMap, BANNER, router as terminalRouter };
+export default router;

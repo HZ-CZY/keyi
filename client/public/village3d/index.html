@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>刻忆觉醒 · Toon Village</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#7ec8f0" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237ec8f0'/%3E%3Cpath d='M8 24V13l8-6 8 6v11z' fill='%23e2574c' stroke='%2330243c' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <!-- 部落铜板彩蛋（2026-10-19）：随机时段出现，点开答对 +5 铜板 -->
+  <button id="coin-bonus" class="coin-bonus" aria-label="铜板彩蛋">
+    <span class="cb-coin">¥</span>
+    <span class="cb-tip">答对 +5 铜板</span>
+  </button>
+
+  <!-- ================= 顶部 HUD ================= -->
+  <div id="hud" class="hud-top">
+    <div class="res-group">
+      <div class="pill pill-gold">
+        <svg viewBox="0 0 24 24" class="ico"><circle cx="12" cy="12" r="9" fill="#ffd75e" stroke="#a9741a" stroke-width="2"/><path d="M12 7v10M9.4 9.6h4a1.8 1.8 0 010 3.6h-4M9.4 13.2h4.6" fill="none" stroke="#a9741a" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="val" id="res-gold">0</span>
+        <span class="cap" id="cap-gold">/0</span>
+        <div class="bar"><i id="bar-gold"></i></div>
+      </div>
+      <div class="pill pill-elixir">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M12 3c3.4 4.2 6 7.3 6 10.2A6 6 0 016 13.2C6 10.3 8.6 7.2 12 3z" fill="#e487ff" stroke="#7a2c96" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="val" id="res-elixir">0</span>
+        <span class="cap" id="cap-elixir">/0</span>
+        <div class="bar"><i id="bar-elixir"></i></div>
+      </div>
+      <div class="pill pill-gem">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M7 4h10l4 6-9 10L3 10z" fill="#63e6a8" stroke="#1e7a52" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="val" id="res-gem">0</span>
+      </div>
+
+      <!-- 时辰 / 天气（2026-10-19）
+           【10-19 晚调整】原先放在右上角 .hud-right，但部落是嵌在宿主页 iframe 里的，
+           宿主自己会在右上角叠一条「铜板 / 今日所得 / 加成 ×1.02 + 刷新」的余额条，
+           两边正好撞在同一个坐标上 —— 天气胶囊被挤成一个孤零零的小圆点，
+           工人数和设置按钮更是直接被盖住。
+           所以把天气挪到左侧资源组末尾：这里全是同款玻璃胶囊，视觉统一，
+           也不会和宿主抢位置。.hud-right（工人 + 设置）则整体下移一行。 -->
+      <div class="pill pill-weather" id="weather-pill" data-weather="clear" data-phase="noon" title="当前时辰与天气">
+        <span class="ico-w" id="weather-icon">☀️</span>
+        <span class="val" id="weather-label">正午</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="pill pill-builder" id="builder-pill">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M4 20h16M6 20V9l6-4 6 4v11" fill="none" stroke="#5b4a37" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="val" id="builder-count">2/2</span>
+      </div>
+      <button class="icon-btn" id="btn-setting" aria-label="设置">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2v.2a2 2 0 11-4 0v-.1a1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.7 1.7 0 004 13H3.8a2 2 0 010-4H4a1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1A1.7 1.7 0 0011 2.9V2.8a2 2 0 014 0V3a1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1A1.7 1.7 0 0020 11h.2a2 2 0 010 4H20z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 建造队列悬浮条 ================= -->
+  <div id="queue" class="queue-bar"></div>
+
+  <!-- ================= 提示气泡层 ================= -->
+  <div id="toasts" class="toast-stack"></div>
+
+  <!-- ================= 选中建筑信息面板 ================= -->
+  <div id="sel" class="sel-panel"></div>
+
+  <!-- ================= 放置模式操作条 ================= -->
+  <div id="place" class="place-bar hidden">
+    <div class="place-info">
+      <span id="place-name">放置建筑</span>
+      <small id="place-hint">拖动调整位置</small>
+    </div>
+    <button class="round-btn ok" id="place-ok">
+      <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="round-btn no" id="place-no">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <!-- ================= 底部主操作栏（2026-10-19 Apple 风重设计） =================
+       设计要点：
+         · 悬浮玻璃胶囊：blur(30px) + saturate(180%)，1px 高光描边 + 多层柔和投影
+         · 5 个等宽触控区，中间「进攻」做成凸起的渐变主按钮（唯一的视觉焦点）
+         · 图标统一 1.8px 圆头描边，年轻但不幼稚；文字 10.5px
+         · 结构只用 data-act 承载逻辑，ui.js 的 closest('.dock-btn') 不受影响
+       注意：夜间由 sky.js 往 body 写 data-phase="night"，胶囊自动切成深色玻璃。 -->
+  <div id="dock" class="dock">
+    <button class="dock-btn" data-act="shop" aria-label="商店">
+      <span class="dock-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5.2 8.6h13.6l-1 10a1.9 1.9 0 0 1-1.9 1.7H8.1a1.9 1.9 0 0 1-1.9-1.7l-1-10Z"/>
+          <path d="M9 8.6V6.9a3 3 0 0 1 6 0v1.7"/>
+        </svg>
+      </span>
+      <span class="dock-label">商店</span>
+    </button>
+
+    <button class="dock-btn" data-act="army" aria-label="军队">
+      <span class="dock-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.3 18.8 6v5.3c0 3.9-2.8 7.2-6.8 8.3-4-1.1-6.8-4.4-6.8-8.3V6L12 3.3Z"/>
+          <path d="M9 15.6 14.2 9.3M12.6 8.7h2.2v2.2"/>
+        </svg>
+      </span>
+      <span class="dock-label">军队</span>
+    </button>
+
+    <button class="dock-btn primary" data-act="attack" aria-label="进攻">
+      <i class="dock-halo" aria-hidden="true"></i>
+      <span class="dock-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.4 3.7 3.9 10.3c-.7.3-.7 1.3.1 1.5l6.3 1.9 1.9 6.3c.2.8 1.2.8 1.5.1L20.4 3.7Z"/>
+          <path d="M20.4 3.7 10.3 13.7"/>
+        </svg>
+      </span>
+      <span class="dock-label">进攻</span>
+    </button>
+
+    <button class="dock-btn" data-act="edit" aria-label="编辑">
+      <span class="dock-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.6 19.4l1.1-4.1L16.5 4.5a2.1 2.1 0 0 1 3 3L8.7 18.3l-4.1 1.1Z"/>
+          <path d="M14.9 6.1l3 3"/>
+        </svg>
+      </span>
+      <span class="dock-label">编辑</span>
+    </button>
+
+    <button class="dock-btn" data-act="daily" aria-label="任务">
+      <span class="dock-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8.6 4.6h6.8M9.2 4.6A3 3 0 0 0 6.2 7.6v10.8a2 2 0 0 0 2 2h7.6a2 2 0 0 0 2-2V7.6a3 3 0 0 0-3-3"/>
+          <path d="M9.2 11.7l1.7 1.7 3.5-3.5"/>
+          <path d="M9.4 16.6h5.2"/>
+        </svg>
+      </span>
+      <span class="dock-label">任务</span>
+    </button>
+  </div>
+
+  <!-- ================= 战斗模式 HUD ================= -->
+  <div id="battle-hud" class="battle-hud hidden">
+    <div class="battle-top">
+      <div class="battle-stat">
+        <div class="bst-row"><span>摧毁度</span><b id="bst-dmg">0%</b></div>
+        <div class="bar big"><i id="bst-bar"></i></div>
+      </div>
+      <div class="battle-stat">
+        <div class="bst-row"><span>时间</span><b id="bst-time">3:00</b></div>
+        <div class="stars" id="bst-stars"><i></i><i></i><i></i></div>
+      </div>
+      <button class="icon-btn danger" id="btn-quit-battle" aria-label="结束">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <!-- 答题强化（2026-10-19）：答对越多部队越强；桌面常开，窄屏收起成右侧小按钮 -->
+    <div id="quiz-panel" class="quiz-panel hide">
+      <div class="quiz-head">
+        <span class="quiz-title">⚡ 答题强化</span>
+        <b class="quiz-buff" id="quiz-buff">+0%</b>
+        <button class="quiz-x" id="quiz-close" aria-label="收起">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="quiz-hint">选出<b class="q-em">加粗字</b>的释义</p>
+      <p class="quiz-q" id="quiz-q">正在出题…</p>
+      <div class="quiz-opts" id="quiz-opts"></div>
+      <div class="quiz-foot">
+        <div class="quiz-segs" id="quiz-segs"></div>
+        <span class="quiz-note" id="quiz-note">答对 0 题</span>
+      </div>
+    </div>
+
+    <button id="quiz-toggle" class="quiz-toggle" aria-label="答题强化">
+      <span class="q-ico">⚡</span>
+      <b id="quiz-toggle-buff">+0%</b>
+    </button>
+
+    <div class="troop-dock" id="troop-dock"></div>
+  </div>
+
+  <!-- ================= 底部弹出面板 ================= -->
+  <div id="sheet" class="sheet"><div class="sheet-inner" id="sheet-inner"></div></div>
+  <div id="scrim" class="scrim hidden"></div>
+
+  <!-- ================= 结算 ================= -->
+  <div id="result" class="modal hidden"><div class="modal-card" id="result-card"></div></div>
+
+  <!-- 铜板彩蛋答题 -->
+  <div id="bonus-modal" class="modal hidden"><div class="modal-card bonus-card" id="bonus-card"></div></div>
+
+  <!-- ================= 加载 ================= -->
+  <div id="loader" class="loader">
+    <div class="loader-logo">刻忆觉醒</div>
+    <div class="loader-sub">三渲二 · Toon Shading Village</div>
+    <div class="loader-bar"><i id="loader-bar"></i></div>
+    <div class="loader-tip" id="loader-tip">正在生成村庄地形…</div>
+  </div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

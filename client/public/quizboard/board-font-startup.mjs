@@ -1,0 +1,1 @@
+import{prepareBoardTeachingFonts as e}from"./board-labels.mjs";const t=document.querySelector('link[href="/quizboard/board-fonts.css"]');t&&!t.sheet&&await new Promise(e=>{t.addEventListener("load",e,{once:!0}),t.addEventListener("error",e,{once:!0})}),await e();

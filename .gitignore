@@ -1,0 +1,65 @@
+# ── 依赖 ──
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── 数据库与运行时数据（2GB，绝不入库）──
+server/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── 敏感配置（JWT_SECRET 等）──
+.env
+.env.local
+.env.*.local
+server/.env
+!.env.example
+
+# ── 构建产物（可由 rebuild-client.sh / tsc 重建）──
+client/dist/
+server/dist/
+dist/
+build/
+*.tsbuildinfo
+
+# ── 日志 ──
+*.log
+server.log
+logs/
+
+# ── 备份与压缩包 ──
+*.tar.gz
+*.tgz
+*.zip
+
+# ── 编辑器 / 系统 ──
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+
+# ── 上传与临时文件 ──
+uploads/
+tmp/
+temp/
+
+# 旧构建备份目录(内含超大 splat/mp4 资源)
+dist.bak*/
+*.splat
+*.ply
+dist.old/
+
+# ── 学生上传的图片不进公开仓库 ──
+server/public/avatars/
+server/public/backgrounds/
+client/public/uploads/
+
+# ── 一次性调试脚本 ──
+*.bak_*
+*.bak

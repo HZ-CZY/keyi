@@ -1,0 +1,5127 @@
+/* Quizboard runtime styles shared by board.html, demo shell, and bundled hosts. */
+.doc-word-card {
+  padding: 22px 24px; border: 1px solid var(--border); border-radius: 22px;
+  background: var(--surface); color: var(--ink); overflow-wrap: anywhere;
+}
+.doc-word-header { display: flex; align-items: center; gap: 12px; }
+.doc-word { font-size: 32px; line-height: 1.25; }
+.doc-word-pronounce {
+  display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px;
+  padding: 10px; border: 0; border-radius: 14px; cursor: pointer;
+  color: var(--ink); background: transparent; touch-action: manipulation;
+}
+.doc-word-pronounce:hover, .doc-word-pronounce[aria-pressed="true"] { background: var(--toolbar-highlight); }
+.doc-word-pronounce:focus-visible, .doc-diagram-viewport:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.doc-word-pronounce:disabled { opacity: .4; cursor: default; }
+.doc-word-pronounce[aria-busy="true"] { opacity: .55; }
+.doc-word-details { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted-ink); font-size: 18px; margin: 6px 0 12px; }
+.doc-word-meaning { font-size: 22px; line-height: 1.55; white-space: pre-wrap; }
+.doc-word-status { color: var(--muted-ink); font-size: 14px; line-height: 20px; min-height: 20px; margin-top: 8px; }
+.doc-diagram { color: var(--ink); width: 100%; }
+.doc-diagram-title { margin: 0 0 12px; font-size: 22px; line-height: 1.4; }
+.doc-diagram-viewport { overflow: auto; max-height: 640px; overscroll-behavior: contain; border-radius: 16px; }
+.doc-diagram-scene { position: relative; margin: 0 auto; }
+.doc-diagram-edges { position: absolute; inset: 0; overflow: visible; color: var(--muted-ink); }
+.doc-diagram-edge-label { font-size: 15px; fill: var(--ink); stroke: var(--paper); stroke-width: 5px; paint-order: stroke; }
+.doc-diagram-node {
+  position: absolute; width: 164px; min-height: 64px; display: grid; place-items: center;
+  padding: 14px 16px; border: 1.7px solid var(--ink); border-radius: 12px;
+  background: var(--paper); color: var(--ink); text-align: center; font-size: 19px; line-height: 1.45;
+  overflow-wrap: anywhere; isolation: isolate;
+}
+.doc-diagram-terminal { border-radius: 40px; }
+.doc-diagram-topic { border-radius: 22px; background: var(--surface); }
+.doc-diagram-decision { border: 0; border-radius: 0; background: none; padding: 28px 32px; }
+.doc-diagram-decision::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--ink); clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+}
+.doc-diagram-decision::after {
+  content: ""; position: absolute; inset: 2px; z-index: -1;
+  background: var(--paper); clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+}
+.doc-diagram-measure { position: absolute; left: -10000px; top: 0; visibility: hidden; width: 164px; }
+.doc-diagram-measure .doc-diagram-node { position: relative; }
+.doc-diagram-node.qb-play-highlight-active { outline: 3px solid var(--toolbar-accent); outline-offset: 4px; }
+.doc-diagram-edge.qb-play-highlight-active { color: var(--toolbar-accent); }
+:root {
+  color-scheme: light dark;
+  --paper: #fff;
+  --surface: #fffdf8;
+  /* 分栏的题目参考栏底色与讲解页顶部区域统一为蓝灰色（解答栏保持白纸）。 */
+  --reference-paper: #e4ecff;
+  --ink: #1f1a14;
+  --muted-ink: #6b6258;
+  --accent: #6f665c;
+  --student-input-ink: #2f6fed;
+  --student-input-capture-ink: #174a8b;
+  --correction-ink: #d32f2f;
+  --border: #d8cfc0;
+  --color-line-primary: #EDEDED;
+  --toolbar-accent: #26834a;
+  --toolbar-highlight: rgba(34, 197, 94, 0.12);
+  --toolbar-highlight-soft: rgba(34, 197, 94, 0.08);
+  --toolbar-highlight-strong: rgba(34, 197, 94, 0.16);
+}
+html.qb-student-ink-capture {
+  --student-input-ink: var(--student-input-capture-ink);
+}
+.board-canvas {
+  /* Demo Shell 可以保留自身品牌色，但白板内部系统控件不借用学生蓝。 */
+  --accent: #6f665c;
+}
+* { box-sizing: border-box; }
+html, body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--board-font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  overflow-x: hidden;
+}
+@keyframes boardggb-highlight-enter {
+  from { filter: opacity(0.55); }
+  to { filter: opacity(1); }
+}
+@keyframes qb-play-highlight-breathe {
+  0%, 100% {
+    color: inherit;
+    text-shadow: 0 0 0 rgba(214, 59, 50, 0);
+  }
+  50% {
+    color: #e8590c;
+    text-shadow: 0 0 8px rgba(214, 59, 50, 0.38);
+  }
+}
+@keyframes qb-play-highlight-svg-breathe {
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 5px rgba(214, 59, 50, 0.95)); }
+}
+@keyframes qb-play-mark-flash {
+  0%, 100% { opacity: 1; }
+  18%, 58% { opacity: 0.32; }
+  36%, 78% { opacity: 1; }
+}
+@keyframes qb-play-reveal-unit-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes qb-play-reveal-math-unit-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes qb-play-choice-card-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.boardggb-debug-stroke,
+.boardggb-debug-face,
+.boardggb-debug-point-ring,
+.boardggb-highlight-label,
+.boardcalc-highlight-halo {
+  animation: boardggb-highlight-enter 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boardggb-debug-stroke,
+  .boardggb-debug-face,
+  .boardggb-debug-point-ring,
+  .boardggb-highlight-label,
+  .boardcalc-highlight-halo,
+  .qb-play-highlight,
+  .qb-play-highlight-active,
+  .qb-play-mark-flash,
+  .qb-play-reveal-unit { animation: none !important; }
+  .qb-play-highlight,
+  .qb-play-highlight-active { color: #a52d28; text-shadow: 0 0 4px rgba(214, 59, 50, 0.28); }
+  svg .qb-play-highlight,
+  svg .qb-play-highlight-active { filter: drop-shadow(0 0 3px rgba(214, 59, 50, 0.8)); }
+  /* 基础规则写在后面且同优先级，不加 !important 会被 opacity: 0 盖回去，文字要等清理计时器才出现。 */
+  .qb-play-reveal-unit { opacity: 1 !important; transform: none !important; }
+}
+#board-root {
+  --board-axis-font: var(--board-font-cjk), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--paper);
+}
+.board-shell {
+  width: min(1100px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0;
+  background: var(--paper);
+}
+.board-canvas {
+  position: relative;
+  width: 1100px;
+  max-width: 100%;
+  min-height: max(780px, var(--doc-scene-height, 0px));
+  margin: 0 auto;
+  font-family: var(--board-font-sans);
+  background: var(--paper);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+/* 作品编辑：不降低题目或讲解内容的透明度；点选的对象用工具栏强调色描边（蓝色只留给学生作答）。 */
+.board-canvas [data-edit-focus="selected"] {
+  outline: 2.5px solid var(--toolbar-accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.board-canvas.qb-edit-picking [data-doc-id] {
+  cursor: pointer;
+}
+.board-host-split-workspace {
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+@supports (height: 100dvh) {
+  .board-host-split-workspace {
+    height: 100dvh;
+  }
+}
+.board-viewport.board-host-split-workspace {
+  height: 100%;
+  min-height: 0;
+}
+.board-canvas.board-split-workspace {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.board-canvas.grid-on {
+  background:
+    linear-gradient(#0000 23px, #efe7da 24px) 0 0 / 24px 24px,
+    linear-gradient(90deg, #0000 23px, #efe7da 24px) 0 0 / 24px 24px,
+    var(--paper);
+}
+[data-wb-block="1"] {
+  margin-bottom: 16px;
+}
+.wb-text {
+  font-family: var(--board-font-hand);
+  font-size: 22px;
+  line-height: 1.5;
+  margin: 8px 0;
+  color: var(--ink);
+}
+.wb-latex {
+  font-family: var(--board-font-sans);
+  margin: 12px 0;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 8px;
+}
+mjx-container {
+  font-family: var(--board-font-sans);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+mjx-container * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+mjx-container[jax="SVG"] svg text {
+  /* 保持 MathJax 测量与 SVG 显示使用同一字体。 */
+  font-family: inherit !important;
+}
+.wb-figure {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  .wb-figure[data-figure-role="main_figure"]::after {
+    color: rgba(243, 245, 247, 0.66);
+    background: rgba(243, 245, 247, 0.08);
+  }
+}
+.wb-block[data-chrome="immersive"] .wb-figure {
+  border: 1px dashed transparent;
+  border-radius: 12px;
+}
+/* 给题图 Figure 铺栏位同色底，避免内部透明的 SVG / Loading 层露出白色底色。 */
+.doc-pane-reference .wb-block[data-chrome="immersive"] .wb-figure {
+  background-color: var(--reference-paper);
+}
+.wb-figure-placeholder-frame {
+  aspect-ratio: 2 / 1;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: #8b8175;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+}
+.wb-figure-source-preview {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+.wb-figure-source-preview-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--reference-paper);
+  /* 把题图的乘色合成限制在参考栏底色内；加载动画改 opacity 时也不闪出原始白底。 */
+  isolation: isolate;
+}
+.wb-figure-source-preview-crop {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 8px;
+  visibility: hidden;
+  opacity: 0;
+}
+.wb-figure-source-preview-crop.is-ready {
+  visibility: visible;
+  opacity: 1;
+}
+.wb-figure-source-preview-image {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@media (prefers-color-scheme: light) {
+  /* 白底题图是位图内容，容器改色无法覆盖白色像素；浅色参考栏中用乘色融入纸面。 */
+  .wb-figure-source-preview-image,
+  .doc-problem-media .doc-asset-image,
+  .doc-problem-media .doc-asset-html img {
+    mix-blend-mode: multiply;
+  }
+}
+.wb-figure-source-preview-with-overlay {
+  position: relative;
+}
+.wb-figure-source-preview-soft .wb-figure-source-preview-crop {
+  /* crop 的宽高就是实际裁切图比例；等百分比半径会自动形成匹配它的椭圆。 */
+  -webkit-mask-image: radial-gradient(ellipse 54% 54% at center, #000 32%, rgba(0, 0, 0, 0.86) 50%, rgba(0, 0, 0, 0.34) 70%, transparent 92%);
+  mask-image: radial-gradient(ellipse 54% 54% at center, #000 32%, rgba(0, 0, 0, 0.86) 50%, rgba(0, 0, 0, 0.34) 70%, transparent 92%);
+}
+.wb-figure-source-preview-soft .wb-figure-source-preview-image {
+  opacity: 0.7;
+}
+.wb-figure-source-preview-builder-loading .wb-figure-source-preview-image {
+  opacity: 0.5;
+}
+.wb-figure-source-preview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.wb-figure-loading-panel {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 0;
+  color: rgba(66, 63, 59, 0.7);
+}
+.wb-figure-loading-spinner {
+  display: block;
+  width: 50px;
+  height: 50px;
+  overflow: visible;
+}
+.wb-figure-loading-spinner path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  transform-origin: 25px 25px;
+  animation-duration: 3000ms;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+.wb-figure-loading-spinner path:nth-child(1) { transform: rotate(0deg); animation-name: wb-figure-ray-1; }
+.wb-figure-loading-spinner path:nth-child(2) { transform: rotate(45deg); animation-name: wb-figure-ray-2; }
+.wb-figure-loading-spinner path:nth-child(3) { transform: rotate(90deg); animation-name: wb-figure-ray-3; }
+.wb-figure-loading-spinner path:nth-child(4) { transform: rotate(135deg); animation-name: wb-figure-ray-4; }
+.wb-figure-loading-spinner path:nth-child(5) { transform: rotate(180deg); animation-name: wb-figure-ray-5; }
+.wb-figure-loading-spinner path:nth-child(6) { transform: rotate(225deg); animation-name: wb-figure-ray-6; }
+.wb-figure-loading-spinner path:nth-child(7) { transform: rotate(270deg); animation-name: wb-figure-ray-7; }
+.wb-figure-loading-spinner path:nth-child(8) { transform: rotate(315deg); animation-name: wb-figure-ray-8; }
+@keyframes wb-figure-ray-1 { 0% { stroke-dashoffset: 1; opacity: 0; } 7%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-2 { 7% { stroke-dashoffset: 1; opacity: 0; } 14%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-3 { 14% { stroke-dashoffset: 1; opacity: 0; } 21%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-4 { 21% { stroke-dashoffset: 1; opacity: 0; } 28%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-5 { 28% { stroke-dashoffset: 1; opacity: 0; } 35%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-6 { 35% { stroke-dashoffset: 1; opacity: 0; } 42%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-7 { 42% { stroke-dashoffset: 1; opacity: 0; } 49%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+@keyframes wb-figure-ray-8 { 49% { stroke-dashoffset: 1; opacity: 0; } 56%, 100% { stroke-dashoffset: 0; opacity: .88; } }
+.wb-figure-source-preview-overlay .boardggb-svg {
+  background: transparent;
+}
+.qb-figure-animation-notice {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  padding: 4px;
+  border: 1px solid rgba(216, 207, 192, 0.8);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  box-shadow: 0 8px 22px rgba(31, 26, 20, 0.14);
+  backdrop-filter: blur(10px);
+  font-family: var(--board-font-sans);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.qb-figure-animation-notice-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #62594f;
+  box-shadow: none;
+  font: 700 12px/1 var(--board-font-sans);
+  cursor: help;
+}
+.qb-figure-animation-notice-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.qb-figure-animation-notice-icon-dot {
+  stroke-width: 2;
+}
+.qb-figure-animation-notice-trigger:hover,
+.qb-figure-animation-notice-trigger:focus-visible,
+.qb-figure-animation-notice.is-open .qb-figure-animation-notice-trigger {
+  background: var(--toolbar-highlight);
+  color: var(--toolbar-accent);
+  outline: none;
+}
+.qb-figure-animation-notice-tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 7px);
+  width: min(300px, calc(100vw - 56px));
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid rgba(216, 207, 192, 0.86);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.97);
+  box-shadow: 0 10px 26px rgba(31, 26, 20, 0.16);
+  color: #51483f;
+  font: 500 12px/1.5 var(--board-font-sans);
+  text-align: left;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.qb-figure-animation-notice:hover .qb-figure-animation-notice-tooltip,
+.qb-figure-animation-notice:focus-within .qb-figure-animation-notice-tooltip,
+.qb-figure-animation-notice.is-open .qb-figure-animation-notice-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (hover: hover) and (pointer: fine) {
+  html.hover-capable:not(.force-no-hover) .wb-figure > .qb-figure-animation-notice {
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+  }
+  html.hover-capable:not(.force-no-hover) .wb-figure:hover > .qb-figure-animation-notice,
+  html.hover-capable:not(.force-no-hover) .wb-figure:has(> .qb-figure-animation-notice :focus-visible) > .qb-figure-animation-notice,
+  html.hover-capable:not(.force-no-hover) .wb-figure > .qb-figure-animation-notice.is-open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+.wb-image {
+  max-width: 360px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin: 8px 0;
+}
+.doc-flow {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-synthesis: none;
+}
+.doc-measure-root {
+  position: fixed !important;
+  top: 0;
+  left: -100000px;
+  width: 1100px;
+  height: auto;
+  overflow: visible;
+  visibility: hidden;
+  contain: layout style paint;
+  pointer-events: none;
+}
+.doc-measure-item {
+  display: flow-root;
+  width: auto;
+  height: auto;
+  box-sizing: border-box;
+}
+.doc-measure-item > [data-wb-block="1"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+.doc-fixed-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  gap: 0;
+  pointer-events: none;
+}
+.doc-split-workspace {
+  overflow: hidden;
+}
+/* 题目参考栏铺浅底、解答栏保持白纸，两栏靠底色分开，不再画分隔细线（用户 2026-10-06 看导出视频：两栏同为白底，
+   只隔一条 1px 灰线）。栏内用纸色画的遮盖与标签光晕跟着换成同一底色，不在浅底上留白块。 */
+.doc-pane-reference {
+  --paper: var(--reference-paper);
+  --surface: var(--reference-paper);
+  background: var(--reference-paper);
+}
+.doc-split-scroll-indicator {
+  position: absolute;
+  top: var(--doc-split-indicator-top, 0);
+  bottom: var(--doc-split-indicator-bottom, 0);
+  left: calc(var(--doc-split-divider-x, 550px) - 3px);
+  width: 7px;
+  pointer-events: none;
+  z-index: 3;
+}
+.doc-split-scroll-thumb {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  min-height: 3px;
+  border-radius: 999px;
+  background: #d9d9d9;
+  opacity: 0;
+  /* 淡出时长参考 SwiftUI 默认弹簧的 0.55 秒响应时间。 */
+  transition: opacity 550ms ease-out;
+  will-change: height, transform, opacity;
+}
+.doc-split-scroll-thumb[data-board-lane-scroll-thumb="reference"] {
+  left: 0;
+}
+.doc-split-scroll-thumb[data-board-lane-scroll-thumb="solution"] {
+  right: 0;
+}
+.doc-split-scroll-thumb[data-scrolling="true"] {
+  opacity: 1;
+  transition: none;
+}
+.doc-split-scroll-thumb[hidden] {
+  display: none;
+}
+.doc-pane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.doc-split-workspace:not(.doc-split-stacked) .doc-pane {
+  /* 左右分栏的内容坐标已避开顶栏；裁剪滚动视口，避免正文滚入状态栏和标题栏。 */
+  clip-path: inset(var(--doc-split-pane-scroll-top, 0px) 0 0 0);
+}
+.doc-split-workspace:not(.doc-split-stacked)::before {
+  /* 题目栏被裁去的顶栏区域继续使用浅蓝底，保持左右背景分界完整。 */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--doc-split-divider-x, 50%);
+  height: var(--doc-split-pane-scroll-top, 0px);
+  background: var(--reference-paper);
+  pointer-events: none;
+}
+.doc-pane::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.doc-pane-stage {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+/* 上下叠放（手机竖屏，用户 2026-10-08）：参考栏在宿主顶栏之下、解答栏接在下面；顶栏所在条带同用参考栏浅底，
+   题图区看起来是一整块。两栏之间是可拖动的分隔条，题目展开时换成“收起题目”按钮。 */
+.doc-split-stacked::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--doc-stacked-reference-bottom, 0px);
+  background: var(--reference-paper);
+  pointer-events: none;
+}
+.doc-split-stacked .doc-split-scroll-indicator {
+  left: auto;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+}
+.doc-split-stacked .doc-split-scroll-thumb {
+  left: auto;
+  right: 0;
+}
+.doc-stacked-divider,
+.doc-stacked-problem-collapse {
+  display: none;
+}
+.doc-split-stacked .doc-stacked-divider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--doc-stacked-reference-bottom, 0px) - 12px);
+  z-index: 4;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: row-resize;
+}
+.doc-stacked-divider::before {
+  /* 上下区域靠底色区分，不再显示横贯页面的浅色边框。 */
+  display: none;
+}
+.doc-stacked-divider-grip {
+  position: absolute;
+  top: 12px;
+  width: 36px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: #7583a2;
+}
+.doc-split-stacked.doc-stacked-problem-expanded .doc-stacked-problem-collapse {
+  position: absolute;
+  right: 0;
+  top: calc(var(--doc-stacked-reference-bottom, 0px) - 44px);
+  z-index: 5;
+  box-sizing: border-box;
+  width: 72px;
+  height: 44px;
+  padding: 22px 6px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 8px 0 0 0;
+  background: transparent;
+  color: #7897a8;
+  box-shadow: none;
+  font: 500 11px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+.doc-stacked-problem-collapse::before {
+  /* 保持原有 22px 外观，向上扩展轻触范围，防止手指滚动被识别为取消。 */
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 22px;
+  background: #cfe0eb;
+  border-radius: 8px 0 0 0;
+  z-index: -1;
+}
+.doc-stacked-problem-collapse-chevron {
+  display: block;
+  width: 10px;
+  height: 10px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+/* 题目折叠条：参考栏滚到题图后，题干收成栏顶一条，点开展开题目。整条铺满栏顶并用参考栏底色，盖住滚上去的题干；
+   放在白板容器之外，题干副本不参与板上查询。 */
+/* 题图区分页（用户 2026-10-09）：原题的图与老师画的每张图各一页，叠在同一位置只显示当前页，上方一行标签。 */
+.doc-figure-deck-tabs {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.doc-figure-deck-tabs::-webkit-scrollbar {
+  display: none;
+}
+.doc-figure-deck-tabs[hidden] {
+  display: none;
+}
+.doc-figure-deck-tab {
+  flex: none;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 17px;
+  background: #e4e4e4;
+  color: #626269;
+  font: 16px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  cursor: pointer;
+  opacity: 1;
+}
+.doc-figure-deck-tab[aria-selected="true"] {
+  background: #0783ff;
+  color: #fff;
+  opacity: 1;
+}
+/* 隐藏整页子树，避免原图加载后的 visibility: visible 或控件的 pointer-events: auto 穿透。保留排版尺寸。 */
+.doc-deck-page-hidden,
+.doc-deck-page-hidden * {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+.doc-deck-page-enter {
+  animation: doc-deck-page-enter 220ms ease-out;
+}
+@keyframes doc-deck-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-deck-page-enter {
+    animation: none;
+  }
+}
+/* 摘要条与讲解回指共用卡片尺寸，回指出现时完整覆盖原摘要。 */
+.doc-stacked-problem-strip, .qb-quote {
+  --doc-stacked-problem-card-height: 44px;
+  --doc-stacked-problem-preview-height: 22px;
+  --doc-stacked-problem-text-scale: 0.82;
+}
+.doc-stacked-problem-strip {
+  position: absolute;
+  z-index: 6;
+  height: 52px;
+  padding: 4px 20px;
+  box-sizing: border-box;
+  background: var(--reference-paper);
+  pointer-events: auto;
+}
+.doc-stacked-problem-strip[hidden] {
+  display: none;
+}
+.doc-stacked-problem-button {
+  width: 100%;
+  height: var(--doc-stacked-problem-card-height);
+  padding: 0 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 14px;
+  /* 只把题目小卡片设为白底；外层整条仍沿用题图区底色。 */
+  background: #fff;
+  color: var(--ink);
+  font: 16px/1.2 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+/* 知识点课的知识点卡标题行（concept-lesson.md）。 */
+.doc-concept-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.doc-concept-badge {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(71%, 88%, 100%, 0.3);
+  color: rgb(36%, 55%, 100%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.doc-concept-name {
+  font-weight: 700;
+  font-size: 1.12em;
+}
+
+.doc-stacked-problem-preview {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: var(--doc-stacked-problem-preview-height);
+  box-sizing: border-box;
+  overflow: hidden;
+  pointer-events: none;
+}
+.doc-stacked-problem-copy {
+  position: absolute !important;
+  left: 0 !important;
+  top: 50% !important;
+  margin: 0 !important;
+  /* 去掉题干留白，只保留一个首行行框；缩放围绕中线，避免正文贴顶。 */
+  padding: 0 !important;
+  height: auto;
+  overflow: hidden;
+  text-align: left;
+  transform: translateY(-50%) scale(var(--doc-stacked-problem-text-scale));
+  transform-origin: 0 50%;
+}
+.doc-stacked-problem-chevron {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+/* 引用条（手机竖屏读完题后回指折进去的题干、选项）：盖在题目折叠条的位置浮出被指的那句题干或那个选项，指向的线、圈与
+   笔尖画在副本上，同样可点开题目。放在白板容器之外。 */
+.qb-quote {
+  position: absolute;
+  z-index: 7;
+  min-height: 52px;
+  /* 与题目折叠栏的内缩一致，让浮出的白底卡片不比题目栏更宽。 */
+  padding: 4px 20px;
+  box-sizing: border-box;
+  background: var(--reference-paper);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.qb-quote-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--doc-stacked-problem-card-height);
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+}
+.qb-quote-badge {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 600 12px/22px -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  text-align: center;
+}
+.qb-quote-badge[hidden] {
+  display: none;
+}
+.qb-quote-window {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.qb-quote-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.qb-quote-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+/* 引用窗口里露出的上下文文字正常显示，重点仍由指向与划线表达。 */
+.qb-quote-context {
+  opacity: 1;
+}
+.doc-page-divider {
+  position: absolute;
+  width: 1px;
+  border-left: 1px solid rgba(184, 174, 160, 0.42);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.doc-positioned-block {
+  position: absolute;
+  box-sizing: border-box;
+  margin: 0;
+  pointer-events: auto;
+}
+.doc-positioned-block > .doc-callout {
+  height: 100%;
+  margin: 0;
+}
+.doc-positioned-block > .doc-paragraph {
+  margin: 0;
+}
+/* 答疑沿用课堂绿色。底色跟随块的显示/隐藏，相邻回答连接成一个区域。 */
+.wb-block.qb-question-answer-block {
+  isolation: isolate;
+  padding: 12px 16px;
+}
+.wb-block.qb-question-answer-block[data-question-answer-label] {
+  padding-top: 38px;
+}
+.qb-question-answer-block::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 calc(-1 * var(--question-answer-gap, 0px));
+  border-radius: 12px;
+  border-left: 3px solid var(--toolbar-highlight-strong);
+  background: var(--toolbar-highlight-soft);
+  z-index: -1;
+  pointer-events: none;
+}
+.qb-question-answer-block[data-question-answer-continued]::after { border-top-left-radius: 0; border-top-right-radius: 0; }
+.qb-question-answer-block[data-question-answer-joined]::after { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.qb-question-answer-block[data-question-answer-label]::before {
+  content: attr(data-question-answer-label);
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  font: 600 12px/18px var(--board-font-sans);
+  color: var(--toolbar-accent);
+  pointer-events: none;
+}
+.doc-positioned-stem {
+  padding: 0 0 1px;
+}
+.doc-positioned-stem .doc-paragraph {
+  margin: 0;
+  line-height: 1.35;
+}
+.doc-stem {
+  width: 100%;
+  padding: 0 0 1px;
+}
+.doc-stem [data-wb-block="1"] {
+  margin-bottom: 0;
+}
+.doc-stem .doc-paragraph {
+  font-size: inherit;
+  line-height: 1.35;
+  margin: 0;
+}
+#board-root[data-stem-font="source-han-serif"] .doc-flow {
+  font-family: var(--board-font-cjk), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+#board-root[data-stem-font="source-han-serif"] {
+  --board-axis-font: var(--board-font-cjk), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+#board-root[data-stem-font="mixed"] .doc-flow {
+  font-family: var(--board-font-cjk), var(--board-font-comic), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+#board-root[data-stem-font="mixed"] {
+  --board-axis-font: var(--board-font-cjk), var(--board-font-comic), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+:root[data-font-preset="wenkai"] #board-root[data-stem-font="mixed"] .doc-flow {
+  font-family: var(--board-font-comic), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+:root[data-font-preset="wenkai"] #board-root[data-stem-font="mixed"] {
+  --board-axis-font: var(--board-font-comic), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+#board-root[data-stem-font="yozai"] .doc-flow {
+  font-family: var(--board-font-yozai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+#board-root[data-stem-font="yozai"] {
+  --board-axis-font: var(--board-font-yozai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+.wb-axis2d-label {
+  font-family: var(--board-axis-font);
+}
+#board-root[data-stem-size="16"] .doc-flow {
+  font-size: 16px;
+}
+#board-root[data-stem-size="18"] .doc-flow {
+  font-size: 18px;
+}
+#board-root[data-stem-size="20"] .doc-flow {
+  font-size: 20px;
+}
+#board-root[data-stem-size="22"] .doc-flow {
+  font-size: 22px;
+}
+#board-root[data-stem-size="24"] .doc-flow {
+  font-size: 24px;
+}
+#board-root[data-stem-size="28"] .doc-flow {
+  font-size: 28px;
+}
+#board-root[data-stem-weight="300"] .doc-flow {
+  font-weight: 300;
+}
+#board-root[data-stem-weight="400"] .doc-flow {
+  font-weight: 400;
+}
+#board-root[data-stem-weight="500"] .doc-flow {
+  font-weight: 500;
+}
+#board-root[data-stem-weight="700"] .doc-flow {
+  font-weight: 700;
+}
+.doc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  min-height: 120px;
+  max-height: 650px;
+  padding: 0 0 8px;
+  break-inside: avoid;
+}
+.doc-row.doc-row-wide {
+  grid-template-columns: minmax(0, 1fr);
+  max-height: none;
+}
+.doc-row.doc-row-wide .doc-col-right {
+  display: none;
+}
+.doc-row.doc-row-wide .doc-col-left {
+  width: 75%;
+  margin-inline: auto;
+}
+.doc-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.doc-col [data-wb-block="1"] {
+  margin-bottom: 0;
+}
+/* 解答栏的板书与结构块按内容收宽，统一左对齐到同一缩进：多块上下排列时左缘对齐，不再各自居中。 */
+.doc-row:not(.doc-row-wide) .doc-col > .wb-block > .doc-write,
+.doc-measure-item > .wb-block[data-measure-layout-role="column"] > .doc-write,
+.doc-positioned-block[data-layout-role="column"] > .doc-write {
+  width: fit-content;
+  max-width: calc(100% - var(--doc-column-indent, 16px));
+  margin-inline: var(--doc-column-indent, 16px) 0;
+  text-align: left;
+}
+.wb-block[data-figure-width="narrow"] {
+  width: 70%;
+  margin-inline: auto;
+}
+.wb-block[data-figure-engine="boardcalc"][data-figure-width="narrow"] {
+  width: min(70%, 460px);
+  margin-inline: auto;
+}
+.wb-block {
+  position: relative;
+}
+.wb-block.wb-popup-open {
+  /* block 自身可能是 z-index: 0 的 stacking context；弹出层打开时临时越过普通白板内容。 */
+  z-index: 20 !important;
+}
+.wb-pathway-block {
+  width: 100%;
+}
+.doc-pathway {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  padding: 8px 0 18px;
+}
+.doc-pathway-node {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 28px rgba(38, 40, 44, 0.08);
+}
+.doc-pathway-figure {
+  height: 210px;
+  overflow: hidden;
+}
+.doc-pathway-figure > .wb-block {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.doc-pathway-figure .wb-figure {
+  height: 100%;
+}
+.doc-pathway-copy {
+  padding: 12px 16px 14px;
+  border-top: 1px solid rgba(107, 114, 128, 0.12);
+}
+.doc-pathway-title {
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+.doc-pathway-subtitle {
+  margin-top: 3px;
+  color: rgba(31, 26, 20, 0.58);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.doc-pathway-arrow {
+  display: grid;
+  place-items: center;
+}
+.doc-pathway-arrow svg {
+  width: 76px;
+  height: 44px;
+  overflow: visible;
+}
+.doc-pathway-arrow path {
+  fill: none;
+  stroke: rgba(31, 28, 24, 0.72);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-host-action {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wb-host-action:focus-visible {
+  outline: 3px solid rgba(31, 28, 24, 0.28);
+  outline-offset: 4px;
+}
+.doc-pathway-node.wb-host-action {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.doc-pathway-node.wb-host-action:active,
+.doc-pathway-node.wb-host-action.is-gesture-pressed {
+  transform: scale(0.988);
+  border-color: rgba(31, 28, 24, 0.32);
+  box-shadow: 0 4px 16px rgba(38, 40, 44, 0.1);
+}
+.wb-block.doc-positioned-block {
+  /* Mixed BoardScene blocks must not fall back into normal document flow. */
+  position: absolute;
+}
+.qb-play-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.qb-play-revealed {
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+.qb-play-highlight {
+  color: inherit;
+  animation: qb-play-highlight-breathe var(--qb-highlight-duration, 1100ms) ease-in-out 1 both;
+}
+svg .qb-play-highlight {
+  color: inherit;
+  animation-name: qb-play-highlight-svg-breathe;
+}
+.qb-play-highlight-active {
+  color: #e8590c;
+  text-shadow: 0 0 8px rgba(214, 59, 50, 0.38);
+  /* 荧光笔底色：只改字色太弱，公式（SVG）上的光晕几乎看不见（用户 2026-09-30：高亮不明显）。图内对象由下方规则复位。 */
+  background-color: rgba(255, 204, 0, 0.32);
+  border-radius: 0.3em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: color 120ms ease, text-shadow 120ms ease, filter 120ms ease, background-color 160ms ease;
+}
+/* 整块板书高亮：底色只铺在内容宽度上（定位块本身占满栏宽，铺满会像一条色带）；外扩阴影当内边距，不改排版。 */
+.wb-block.qb-play-highlight-active {
+  background-color: transparent;
+}
+.wb-block.qb-play-highlight-active > :is(.doc-write, .doc-paragraph, .qb-structure) {
+  width: fit-content;
+  max-width: 100%;
+  background-color: rgba(255, 204, 0, 0.32);
+  border-radius: 0.3em;
+  box-shadow: 0 0 0 0.18em rgba(255, 204, 0, 0.32);
+}
+@media (prefers-color-scheme: dark) {
+  .qb-play-highlight-active { background-color: rgba(255, 204, 0, 0.2); }
+  .wb-block.qb-play-highlight-active { background-color: transparent; }
+  .wb-block.qb-play-highlight-active > :is(.doc-write, .doc-paragraph, .qb-structure) {
+    background-color: rgba(255, 204, 0, 0.2);
+    box-shadow: 0 0 0 0.18em rgba(255, 204, 0, 0.2);
+  }
+}
+/* 参考栏里的图被点到：图框内侧闪两下，把视线从右栏板书引过去（栏容器裁掉框外，描边画在框内、压在内容上）。 */
+@keyframes qb-figure-attention {
+  0%, 100% { outline-color: rgba(232, 89, 12, 0); }
+  15%, 55% { outline-color: rgba(232, 89, 12, 0.85); }
+  35% { outline-color: rgba(232, 89, 12, 0.25); }
+}
+.wb-figure.qb-figure-attention {
+  outline: 3px solid rgba(232, 89, 12, 0);
+  outline-offset: -3px;
+  animation: qb-figure-attention 1300ms ease-in-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-figure.qb-figure-attention { animation: none; outline: 2px solid rgba(232, 89, 12, 0.6); outline-offset: 3px; }
+}
+/* v4 §3.1 pulse：目标放大到 1.1 倍再回原样，共 700 ms（颜色由高亮 start / end 负责）。 */
+span.qb-draw-pulse { display: inline-block; }
+.qb-draw-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: qb-draw-pulse 700ms ease-in-out 1 both;
+}
+@keyframes qb-draw-pulse {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+}
+/* SVG 节点（公式片段）：CSS transform 会顶掉它定位用的 transform 属性，原有定位与绕自身中心的缩放写成同一条变换
+   （preparePulseTransform 记下 --qb-pulse-base 与中心；用户 2026-10-13：放大时片段闪到父节点原点）。 */
+.qb-draw-pulse.qb-draw-pulse-svg {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation-name: qb-draw-pulse-svg;
+}
+@keyframes qb-draw-pulse-svg {
+  0%, 100% {
+    transform: var(--qb-pulse-base) translate(var(--qb-pulse-cx), var(--qb-pulse-cy)) scale(1)
+      translate(calc(-1 * var(--qb-pulse-cx)), calc(-1 * var(--qb-pulse-cy)));
+  }
+  45% {
+    transform: var(--qb-pulse-base) translate(var(--qb-pulse-cx), var(--qb-pulse-cy)) scale(1.1)
+      translate(calc(-1 * var(--qb-pulse-cx)), calc(-1 * var(--qb-pulse-cy)));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qb-draw-pulse, .qb-draw-pulse.qb-draw-pulse-svg { animation: none; }
+}
+/* v3 §5：飞入 / 接力的片段副本（整条公式克隆，只留该片段字形）。 */
+.qb-draw-part-flight {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  will-change: transform, opacity;
+}
+/* 推导链"一行变成下一行"：滑下来的一侧落定后整段显现，不再逐字重写。 */
+.qb-carry-settled .qb-play-reveal-unit,
+.qb-carry-settled .qb-play-reveal-math-unit,
+.qb-carry-settled.qb-play-reveal-unit,
+.qb-carry-settled.qb-play-reveal-math-unit {
+  animation: none !important;
+  opacity: 1 !important;
+}
+/* 回指弧：从更早被高亮的公式到本步写出的同一公式的一条淡弧（主色半透明，比墨迹细）。 */
+.qb-draw-back-arc {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+.qb-draw-back-arc path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.6;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+/* 改写板上已有的值：旧值副本留在原位，红笔划掉后连同红线淡出。 */
+.qb-draw-rewrite {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.qb-draw-rewrite-strike {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.qb-draw-rewrite-strike line {
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+/* v4 §3.1 count：计数期间片段挖掉，原位叠一个右对齐的滚动数字。 */
+.qb-count-hidden { opacity: 0 !important; }
+.qb-draw-count {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+  text-align: right;
+  font-family: "Latin Modern Math", "STIX Two Math", "Times New Roman", serif;
+  font-variant-numeric: tabular-nums;
+}
+/* v4 §3.1 pin：栏顶钉住条，sticky 占去最上一条（板书被推下，不被盖住）。 */
+.qb-draw-pin {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 5px 10px;
+  background: var(--paper);
+  animation: qb-draw-pin-enter 240ms ease-out 1 both;
+}
+.qb-draw-pin-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(111, 102, 92, 0.28);
+  border-radius: 8px;
+  background: rgba(111, 102, 92, 0.06);
+}
+.qb-draw-pin-icon { flex: 0 0 auto; display: inline-flex; }
+.qb-draw-pin-copy { flex: 0 1 auto; overflow: hidden; }
+.qb-draw-pin-row { display: inline-flex; align-items: baseline; gap: 0.3em; white-space: nowrap; }
+@keyframes qb-draw-pin-enter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qb-draw-pin { animation: none; }
+}
+/* 荧光笔留痕：老师板书上的高亮结束后留一道浅色底（视图层，与高亮同色相）。 */
+.qb-draw-trace {
+  background-color: rgba(232, 89, 12, 0.1);
+  border-radius: 0.35em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.qb-play-transient-target {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+.qb-play-mark-flash {
+  animation: qb-play-mark-flash var(--qb-mark-flash-duration, 360ms) ease-in-out 1 both;
+}
+svg .qb-play-highlight-active {
+  color: inherit;
+  filter: drop-shadow(0 0 5px rgba(214, 59, 50, 0.95));
+}
+svg .qb-play-highlight-active.boardggb-debug-stroke,
+svg .qb-play-highlight-active.boardggb-debug-face {
+  /* BoardGGB 正式教学直接复用 Inspector 样式，不再叠加同色阴影。 */
+  filter: none;
+}
+svg path[data-boardcalc-expression].qb-play-highlight-active {
+  /* 函数曲线聚焦时同样使用红色，退出后恢复原描边。 */
+  stroke: #ff3b30;
+  stroke-width: 4;
+  filter: none;
+}
+.boardggb-svg .qb-play-highlight-active,
+.boardcalc-svg .qb-play-highlight-active,
+.boardggb-svg .qb-play-highlight {
+  /* Figure 自己驱动颜色过渡，标签与父组不叠加通用文字高亮的延迟、脉冲、光晕和荧光笔底色。 */
+  color: inherit;
+  text-shadow: none;
+  filter: none;
+  background-color: transparent;
+  transition: none;
+  animation: none;
+}
+.qb-play-revealing {
+  opacity: 1;
+}
+.qb-play-reveal-unit {
+  display: inline-block;
+  opacity: 0;
+  animation: qb-play-reveal-unit-in var(--qb-reveal-fade-ms, 220ms) ease-out forwards;
+  animation-delay: calc(var(--qb-reveal-index, 0) * var(--qb-reveal-unit-ms, 55ms));
+}
+/* 暂停（主 Play 或原生语音）时逐字入场停在原处；已在播的由 runtime 按 Web Animations 冻结，这条覆盖暂停中新挂上的。 */
+.board-canvas.qb-playback-paused .qb-play-reveal-unit,
+.board-canvas.qb-playback-paused .qb-play-reveal-math-unit {
+  animation-play-state: paused;
+}
+.qb-play-reveal-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+.qb-play-reveal-math-unit {
+  animation-name: qb-play-reveal-math-unit-in;
+}
+.qb-play-choice-reveal {
+  opacity: 0;
+}
+.qb-play-revealing .qb-play-choice-reveal {
+  animation: qb-play-choice-card-in var(--qb-reveal-fade-ms, 220ms) ease-out forwards;
+  animation-delay: calc(var(--qb-choice-reveal-index, 0) * var(--qb-reveal-unit-ms, 55ms));
+}
+.qb-play-choice-reveal.qb-play-choice-revealed {
+  opacity: 1;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qb-play-choice-reveal {
+    opacity: 1;
+    animation: none !important;
+  }
+}
+.qb-play-subtitle {
+  position: fixed;
+  left: 50%;
+  bottom: max(78px, calc(env(safe-area-inset-bottom) + 62px));
+  z-index: 30;
+  width: min(780px, calc(100% - 40px));
+  padding: 12px 18px;
+  border: 1px solid rgba(216, 207, 192, 0.78);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: 0 14px 38px rgba(31, 26, 20, 0.16);
+  color: var(--ink);
+  font-family: var(--board-font-sans);
+  font-size: 22px;
+  line-height: 1.45;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.qb-play-subtitle.active {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.qb-play-controls {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 31;
+  box-sizing: border-box;
+  width: min(780px, calc(100% - 40px));
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(216, 207, 192, 0.86);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.95);
+  box-shadow: 0 14px 38px rgba(31, 26, 20, 0.18);
+  color: var(--ink);
+  font-family: var(--board-font-sans);
+  transform: translateX(-50%);
+  backdrop-filter: blur(12px);
+}
+.qb-play-controls[hidden] {
+  display: none;
+}
+.wb-figure > .qb-play-controls.qb-play-controls-inline {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  bottom: 8px;
+  z-index: 8;
+  width: min(270px, calc(100% - 28px));
+  min-height: 38px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid rgba(216, 207, 192, 0.8);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  box-shadow: 0 8px 22px rgba(31, 26, 20, 0.14);
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.wb-figure.qb-figure-controls-selected > .qb-play-controls.qb-play-controls-inline,
+.wb-figure > .qb-play-controls.qb-play-controls-inline:focus-within {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+@media (hover: hover) and (pointer: fine) {
+  .wb-figure:hover > .qb-play-controls.qb-play-controls-inline {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+  }
+}
+.qb-play-controls-inline .qb-play-time,
+.qb-play-controls-inline .qb-play-speed,
+.qb-play-controls-inline .qb-play-replay,
+.qb-play-controls-inline .qb-play-caption-button {
+  display: none;
+}
+/* 字幕默认收起（边讲边画 v1 §12）：收起时只留控制条上的“字幕”开关。 */
+.qb-play-subtitle[data-collapsed="true"] {
+  display: none;
+}
+.qb-play-caption-button[aria-pressed="true"] {
+  background: var(--toolbar-highlight);
+}
+.qb-play-caption-dock {
+  position: fixed;
+  left: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+.qb-play-caption-toggle {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid rgba(216, 207, 192, 0.86);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 6px 16px rgba(31, 26, 20, 0.12);
+  color: var(--muted-ink);
+  font: 14px/1.2 var(--board-font-sans);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.qb-play-caption-toggle[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--surface);
+}
+.qb-play-caption-text {
+  min-width: 0;
+  max-width: 720px;
+  padding: 10px 14px;
+  border: 1px solid rgba(216, 207, 192, 0.78);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 10px 28px rgba(31, 26, 20, 0.14);
+  color: var(--ink);
+  font: 18px/1.45 var(--board-font-sans);
+}
+.qb-play-caption-dock[data-collapsed="true"] .qb-play-caption-text,
+.qb-play-caption-dock:not(.has-caption) .qb-play-caption-text {
+  display: none;
+}
+.qb-play-controls-inline .qb-play-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0;
+  box-shadow: none;
+}
+.qb-play-toggle-svg {
+  display: none;
+}
+.qb-play-controls-inline .qb-play-toggle-label {
+  display: none;
+}
+.qb-play-controls-inline .qb-play-toggle-svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.qb-play-controls-inline .qb-play-icon-pause {
+  display: none;
+}
+.qb-play-controls-inline .qb-play-toggle[aria-label="暂停"] .qb-play-icon-play {
+  display: none;
+}
+.qb-play-controls-inline .qb-play-toggle[aria-label="暂停"] .qb-play-icon-pause {
+  display: inline;
+}
+html:not(.force-no-hover) .qb-play-controls-inline .qb-play-toggle:hover {
+  background: var(--toolbar-highlight);
+  color: var(--toolbar-accent);
+}
+.qb-play-progress-shell {
+  position: relative;
+  min-width: 0;
+  height: 24px;
+}
+.qb-play-controls-inline .qb-play-progress-shell {
+  margin-left: 2px;
+  margin-right: 10px;
+}
+.qb-play-controls-inline .qb-play-progress-shell::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--qb-play-progress, 0%),
+    rgba(117, 110, 100, 0.42) var(--qb-play-progress, 0%) 100%
+  );
+  transform: translateY(-50%);
+}
+.qb-play-controls-inline .qb-play-progress {
+  position: relative;
+  z-index: 2;
+  height: 24px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.qb-play-controls-inline .qb-play-progress::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+}
+.qb-play-controls-inline .qb-play-progress::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--accent);
+  box-shadow: 0 1px 5px rgba(31, 26, 20, 0.28);
+}
+.qb-play-controls-inline .qb-play-progress::-moz-range-track {
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+.qb-play-controls-inline .qb-play-progress::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 5px rgba(31, 26, 20, 0.28);
+}
+@media (hover: hover) and (pointer: fine) {
+  html.hover-capable:not(.force-no-hover) .wb-figure > .qb-play-controls.qb-play-controls-inline {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    pointer-events: none;
+  }
+  html.hover-capable:not(.force-no-hover) .wb-figure:hover > .qb-play-controls.qb-play-controls-inline,
+  html.hover-capable:not(.force-no-hover) .wb-figure:has(> .qb-play-controls.qb-play-controls-inline :focus-visible) > .qb-play-controls.qb-play-controls-inline {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+  }
+}
+.qb-play-controls button,
+.qb-play-controls select {
+  min-height: 32px;
+  border: 1px solid #d8cfc0;
+  border-radius: 9px;
+  background: #fffdf8;
+  color: #51483f;
+  font: 700 13px/1 var(--board-font-sans);
+}
+.qb-play-controls button {
+  padding: 0 11px;
+  cursor: pointer;
+}
+.qb-play-controls select {
+  padding: 0 7px;
+}
+.qb-play-progress {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.qb-play-time {
+  min-width: 76px;
+  color: #6b6258;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+@media (max-width: 720px) {
+  .qb-play-controls {
+    width: calc(100% - 20px);
+    grid-template-columns: auto minmax(80px, 1fr) auto auto auto;
+    gap: 7px;
+  }
+  .qb-play-time { display: none; }
+  .qb-play-controls button { padding: 0 8px; }
+}
+.wb-block-frame-canvas {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+.wb-rough-hover-frame {
+  left: 0;
+  top: 0;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.wb-block-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(216, 207, 192, 0.8);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  box-shadow: 0 8px 22px rgba(31, 26, 20, 0.14);
+  backdrop-filter: blur(10px);
+  min-width: 38px;
+  min-height: 38px;
+  transform-origin: 18px 50%;
+  transition:
+    top 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    right 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    width 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    height 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    border-radius 160ms ease,
+    padding 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+.wb-block-toolbar[data-kind="figure"] {
+  box-sizing: border-box;
+  left: auto;
+  right: 8px;
+  width: auto;
+  height: 38px;
+}
+.wb-block-toolbar[data-kind="inspector"] {
+  top: auto;
+  right: 8px;
+  bottom: 8px;
+  box-sizing: border-box;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+}
+.wb-block-toolbar[hidden],
+.wb-block-tool[hidden],
+.wb-figure-debug-menu[hidden] { display: none !important; }
+.wb-block[data-chrome="immersive"]:focus { outline: none; }
+html:not(.quizboard-internal) .wb-debug-only { display: none !important; }
+.wb-block-tool {
+  box-sizing: border-box;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.wb-axis2d-settings-svg,
+.wb-reset-view-svg,
+.wb-axis2d-zoom-control svg,
+.wb-axis2d-control-button svg {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-figure-3d-surface,
+.wb-figure-2d-surface {
+  touch-action: pan-y;
+  user-select: none;
+  cursor: grab;
+}
+.wb-block.wb-block-selected .wb-figure-3d-surface,
+.wb-block.wb-block-selected .wb-figure-2d-surface {
+  touch-action: none;
+}
+.wb-figure-3d-surface.is-gesturing,
+.wb-figure-2d-surface.is-gesturing {
+  cursor: grabbing;
+}
+.wb-reset-view-center {
+  fill: var(--ink);
+  stroke: none;
+}
+.wb-axis2d-settings-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 8;
+  width: 210px;
+  padding: 10px;
+  border: 1px solid rgba(216, 207, 192, 0.92);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.98);
+  box-shadow: 0 12px 32px rgba(31, 26, 20, 0.18);
+  backdrop-filter: blur(12px);
+}
+.wb-axis2d-settings-menu[hidden] {
+  display: none !important;
+}
+.wb-axis2d-settings-title {
+  margin: 1px 2px 9px;
+  color: var(--ink);
+  font: 650 12px/1.2 var(--board-font-sans);
+}
+.wb-axis2d-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.wb-axis2d-settings-row + .wb-axis2d-settings-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(216, 207, 192, 0.64);
+}
+.wb-axis2d-settings-label {
+  color: rgba(31, 26, 20, 0.72);
+  font: 500 12px/1.2 var(--board-font-sans);
+}
+.wb-axis2d-zoom-control {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 207, 192, 0.8);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.wb-axis2d-zoom-control .wb-axis2d-control-button {
+  width: 45px;
+}
+.wb-axis2d-ratio-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(31, 26, 20, 0.5);
+  font: 500 12px/1 var(--board-font-sans);
+}
+.wb-axis2d-ratio-input {
+  box-sizing: border-box;
+  width: 48px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid rgba(216, 207, 192, 0.8);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font: 500 12px/1 var(--board-font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.wb-axis2d-ratio-input:focus {
+  border-color: var(--toolbar-accent);
+  box-shadow: 0 0 0 2px rgba(111, 102, 92, 0.14);
+}
+.wb-axis2d-ratio-input::-webkit-inner-spin-button,
+.wb-axis2d-ratio-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.wb-axis2d-control-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.wb-axis2d-control-button:hover,
+.wb-axis2d-control-button:focus-visible {
+  outline: none;
+  background: var(--toolbar-highlight);
+  color: var(--toolbar-accent);
+}
+html.hover-capable:not(.force-no-hover) .wb-block-tool:hover,
+.wb-block-tool:active {
+  background: var(--toolbar-highlight);
+  color: var(--toolbar-accent);
+}
+.wb-block-tool[data-action="view-drag"] {
+  /* 自由视角由控件完整接管，不能在移动阈值后被浏览器转成滚动并取消指针。 */
+  touch-action: none;
+  position: relative;
+  overflow: visible;
+  z-index: 7;
+}
+.wb-view-rotate-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+}
+.wb-view-rotate-svg {
+  width: 19px;
+  height: 19px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-block-tool[aria-pressed="true"],
+.wb-block-tool[aria-expanded="true"] {
+  background: var(--toolbar-highlight-strong);
+  color: var(--toolbar-accent);
+}
+.wb-debug-eye-svg {
+  display: block;
+  flex: 0 0 19px;
+  min-width: 19px;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-figure-debug-menu {
+  position: absolute;
+  top: auto;
+  right: 8px;
+  bottom: 50px;
+  z-index: 8;
+  width: 168px;
+  padding: 6px;
+  border: 1px solid rgba(216, 207, 192, 0.92);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.98);
+  box-shadow: 0 12px 32px rgba(31, 26, 20, 0.18);
+  backdrop-filter: blur(12px);
+}
+.wb-debug-panel[hidden] { display: none !important; }
+.wb-debug-group { position: relative; }
+.wb-debug-boardggb-group {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(216, 207, 192, 0.72);
+}
+.wb-debug-group-button,
+.wb-debug-element {
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 13px/1.2 var(--board-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.wb-debug-group-button { position: relative; padding: 7px 26px 7px 9px; }
+.wb-debug-group-button::after {
+  content: "›";
+  position: absolute;
+  right: 10px;
+  color: rgba(31, 26, 20, 0.5);
+}
+.wb-debug-group-button:disabled { opacity: 0.38; cursor: default; }
+.wb-debug-nav-header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  min-height: 32px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(216, 207, 192, 0.72);
+}
+.wb-debug-back {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: 600 22px/1 var(--board-font-sans);
+  cursor: pointer;
+}
+.wb-debug-back:hover,
+.wb-debug-back:focus-visible {
+  outline: none;
+  background: var(--toolbar-highlight);
+  color: var(--toolbar-accent);
+}
+.wb-debug-nav-title {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--ink);
+  font: 650 12px/1.2 var(--board-font-sans);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-debug-detail-list {
+  max-height: 264px;
+  overflow: auto;
+  padding: 0;
+}
+.wb-debug-element {
+  display: block;
+  min-height: 26px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.wb-debug-group-button:not(:disabled):hover,
+.wb-debug-element:hover,
+.wb-debug-element:focus-visible {
+  outline: none;
+  background: rgba(255, 59, 48, 0.1);
+  color: #d72c22;
+}
+.wb-perspective-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+.wb-perspective-svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-perspective-slash {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.wb-block-tool[data-action="perspective"][data-state="2d"] .wb-perspective-slash {
+  opacity: 1;
+}
+.wb-block-tool[data-action="perspective"][data-state="2d"] .wb-perspective-cube {
+  opacity: 0.5;
+}
+.wb-block-tool[data-action="hidden-lines"] {
+  position: relative;
+}
+html:not(.force-no-hover) .wb-block-tool[data-action="hidden-lines"]:hover {
+  background: var(--toolbar-highlight-soft);
+}
+.wb-hidden-lines-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+.wb-hidden-lines-icon::before,
+.wb-hidden-lines-icon::after {
+  content: none;
+}
+.wb-hidden-lines-svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wb-hidden-lines-eye,
+.wb-hidden-lines-eye-slash {
+  transition: opacity 120ms ease;
+}
+.wb-hidden-lines-eye-slash {
+  opacity: 0;
+}
+.wb-block-tool[data-state="hidden"] .wb-hidden-lines-eye-slash {
+  opacity: 1;
+}
+.wb-block-tool[data-state="hidden"] .wb-hidden-lines-eye {
+  opacity: 0;
+}
+.wb-block-toolbar.is-view-dragging {
+  top: var(--wb-view-dpad-top, 8px);
+  right: var(--wb-view-dpad-right, 8px);
+  z-index: 8;
+  box-sizing: border-box;
+  width: 86px;
+  min-width: 86px;
+  height: 86px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 14px 34px rgba(31, 26, 20, 0.18);
+}
+.wb-block-toolbar.is-view-dragging .wb-block-tool:not([data-action="view-drag"]) {
+  opacity: 0;
+  transform: scale(0.65);
+  transition: opacity 90ms ease, transform 120ms ease;
+  pointer-events: none;
+}
+.wb-block-toolbar.is-view-dragging .wb-block-tool[data-action="view-drag"] {
+  opacity: 1;
+  background: transparent;
+}
+.wb-block-toolbar.is-view-dragging .wb-view-rotate-icon {
+  opacity: 0;
+}
+.wb-view-dpad {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.32);
+  transform-origin: center;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease 40ms,
+    left 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    top 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    transform 220ms cubic-bezier(0.18, 1.34, 0.32, 1);
+}
+.wb-block-toolbar.is-view-dragging .wb-view-dpad {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.wb-view-dpad-cross::before,
+.wb-view-dpad-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  background: rgba(107, 98, 88, 0.34);
+  transition: transform 180ms cubic-bezier(0.18, 1.34, 0.32, 1);
+}
+.wb-view-dpad-cross::before {
+  width: 46px;
+  height: 1px;
+  transform: translate(-50%, -50%) scaleX(0.16);
+}
+.wb-view-dpad-cross::after {
+  width: 1px;
+  height: 46px;
+  transform: translate(-50%, -50%) scaleY(0.16);
+}
+.wb-block-toolbar.is-view-dragging .wb-view-dpad-cross::before {
+  transform: translate(-50%, -50%) scaleX(1);
+}
+.wb-block-toolbar.is-view-dragging .wb-view-dpad-cross::after {
+  transform: translate(-50%, -50%) scaleY(1);
+}
+.wb-view-dpad-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--toolbar-accent);
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+  transition: transform 80ms ease;
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"] .wb-block-toolbar {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  /* 触屏工具栏直接切换状态，避免淡入淡出反转或尺寸过冲。 */
+  transition: none;
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"] .wb-block-toolbar[data-kind="inspector"] {
+  transform: translateY(4px);
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"].wb-block-selected .wb-block-toolbar,
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"] .wb-block-toolbar.is-view-dragging {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"].wb-block-selected .wb-rough-hover-frame {
+  opacity: 1;
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"] .wb-figure > .qb-figure-animation-notice {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"].wb-block-selected .wb-figure > .qb-figure-animation-notice,
+html.no-hover .wb-block[data-chrome="immersive"][data-block-kind="figure"] .wb-figure > .qb-figure-animation-notice.is-open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"] .wb-block-toolbar {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    top 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    right 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    width 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    height 220ms cubic-bezier(0.18, 1.34, 0.32, 1),
+    border-radius 160ms ease,
+    padding 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"] .wb-block-toolbar[data-kind="inspector"] {
+  transform: translateY(4px);
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:hover .wb-block-toolbar,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:focus-within .wb-block-toolbar,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"].wb-block-selected .wb-block-toolbar,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"] .wb-block-toolbar.is-view-dragging {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"] .wb-figure,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"] .doc-chart {
+  border-color: transparent;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:hover .wb-figure,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:focus-within .wb-figure {
+  border-color: transparent;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:hover .wb-rough-hover-frame,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:focus-within .wb-rough-hover-frame,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"].wb-block-selected .wb-rough-hover-frame {
+  opacity: 1;
+}
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:hover .doc-chart,
+html.hover-capable:not(.force-no-hover) .wb-block[data-chrome="immersive"]:focus-within .doc-chart {
+  border-color: var(--border);
+}
+.doc-paragraph {
+  font-size: inherit;
+  line-height: 1.75;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.doc-paragraph[data-actor="student"] {
+  color: var(--student-input-ink);
+}
+/* 公式与短衔接词和填空一起换行；窄屏仍允许组内折行，不挤出正文栏。 */
+.doc-blank-prompt {
+  display: inline-block;
+  width: max-content;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+.doc-formula {
+  display: inline;
+  /* 衬线方案使用已校准字面；文楷方案保留原有公式比例。 */
+  font-size: var(--board-formula-scale, 1em);
+  margin: 0 2px;
+  line-height: 0;
+  vertical-align: baseline;
+}
+.doc-formula mjx-container[display="false"] {
+  display: inline-block;
+  line-height: 0;
+  vertical-align: baseline;
+}
+.doc-positioned-stem .doc-formula,
+.doc-stem .doc-formula {
+  /* MathJax SVG 会溢出自身行框；题干公式用实体盒补回相邻行留白。 */
+  display: inline-block;
+  padding-block: 0.12em;
+  line-height: 1;
+}
+mjx-container,
+mjx-container *,
+mjx-assistive-mml {
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+.doc-student-input {
+  display: inline;
+  color: var(--student-input-ink);
+}
+.doc-student-input > .doc-formula:first-child {
+  margin-left: 0;
+}
+.doc-student-input > .doc-formula:last-child {
+  margin-right: 0;
+}
+.doc-blank {
+  --doc-blank-start-space: 0.3em;
+  --doc-blank-end-space: 0.3em;
+  --doc-blank-mark-gap: 0.12em;
+  position: relative;
+  display: inline-grid;
+  width: max-content;
+  max-width: none;
+  min-width: max(2em, var(--doc-blank-answer-width, 0px));
+  min-height: max(1.42em, var(--doc-blank-required-height, 0px));
+  margin: 0;
+  margin-inline: var(--doc-blank-start-space) var(--doc-blank-end-space);
+  padding-inline: 0.32em;
+  border-bottom: 0;
+  line-height: 1.42;
+  vertical-align: baseline;
+}
+@keyframes qb-blank-choice-march {
+  to { stroke-dashoffset: -16; }
+}
+.doc-blank-active-frame {
+  display: none;
+  position: absolute;
+  z-index: 2;
+  top: var(--doc-blank-active-frame-top, -0.44em);
+  right: -0.34em;
+  left: -0.34em;
+  width: calc(100% + 0.68em);
+  height: var(--doc-blank-active-frame-height, calc(100% + 0.88em));
+  overflow: visible;
+  pointer-events: none;
+}
+.doc-blank[data-qb-blank-choice-active="1"] > .doc-blank-active-frame {
+  display: block;
+}
+.doc-blank-active-frame-stroke {
+  x: 1px;
+  y: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  rx: 8px;
+  ry: 8px;
+  fill: none;
+  stroke: #ff3b30;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-dasharray: 8 8;
+  vector-effect: non-scaling-stroke;
+  animation: qb-blank-choice-march 0.72s linear infinite;
+}
+.doc-blank-reference {
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  visibility: hidden;
+  pointer-events: none;
+}
+.doc-blank-reference > * {
+  flex: 0 0 auto;
+}
+.doc-blank-write {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  inset-inline-start: 50%;
+  inset-block-start: 0;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  line-height: inherit;
+  transform: translateX(-50%);
+  transform-origin: left top;
+}
+.doc-blank-write > * {
+  flex: 0 0 auto;
+}
+.doc-blank-write[data-actor="student"] {
+  color: var(--student-input-ink);
+}
+/* 长答案按段落可用宽度折行，参考内容与作答共同撑起填空高度。 */
+.doc-blank[data-qb-blank-wrap="1"] {
+  box-sizing: border-box;
+  width: calc(100% - var(--doc-blank-start-space) - var(--doc-blank-end-space));
+  max-width: calc(100% - var(--doc-blank-start-space) - var(--doc-blank-end-space));
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.doc-blank[data-qb-blank-wrap="1"] > :is(.doc-blank-reference, .doc-blank-write) {
+  position: relative;
+  inset: auto;
+  grid-area: 1 / 1;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.doc-blank-correct-answer {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.12em;
+  max-width: 100%;
+  margin-inline: 0.25em;
+  font-size: 0.88em;
+  line-height: 1.6;
+}
+.doc-blank-correct-answer > .doc-formula {
+  margin-inline: 0;
+}
+/* 判题标记写在横线右端之外；尾距同时参与换行宽度计算，避免长答案把标记推到卡片裁切区。 */
+.doc-blank:has(> .doc-blank-checkmark),
+.doc-blank:has(> .doc-blank-crossmark):not(:has(.doc-correction-replaced)) {
+  --doc-blank-end-space: 1.15em;
+}
+.doc-blank-checkmark,
+.doc-blank-crossmark {
+  position: absolute;
+  inset-inline-start: calc(100% + var(--doc-blank-mark-gap));
+  top: calc(var(--doc-blank-reference-baseline, 1em) - 0.86em);
+  bottom: auto;
+  font-size: 1.02em;
+  font-weight: 800;
+  line-height: 1;
+}
+.doc-blank-checkmark {
+  top: calc(var(--doc-blank-reference-baseline, 1em) - 24px);
+  width: 28px;
+  height: 28px;
+}
+.doc-blank:has(> .doc-blank-checkmark) {
+  --doc-blank-end-space: calc(28px + var(--doc-blank-mark-gap) + 2px);
+}
+.qb-checkmark {
+  display: block;
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+  color: var(--qb-checkmark-light);
+}
+@media (prefers-color-scheme: dark) {
+  .qb-checkmark { color: var(--qb-checkmark-dark); }
+}
+.doc-blank-crossmark {
+  color: #ff3b30;
+  /* 与对钩共用定位盒，只放大字形，避免 em 偏移随字号改变。 */
+  transform: scale(1.06);
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-blank-active-frame-stroke {
+    animation: none;
+  }
+}
+.doc-mark {
+  position: relative;
+  display: inline-block;
+  background: transparent;
+  /* The target wrapper must be layout-neutral. The mark canvas extends
+     beyond the text with its negative inset; reserving space here makes the
+     surrounding text jump when a Play materializes a selectable span. */
+  padding: 0;
+}
+.doc-mark-stroke {
+  position: absolute;
+  inset: -7px -10px;
+  z-index: 0;
+  width: calc(100% + 20px);
+  height: calc(100% + 14px);
+  pointer-events: none;
+}
+.doc-mark-text {
+  position: relative;
+  z-index: 1;
+}
+.doc-solid-blank {
+  position: relative;
+  display: inline-block;
+  width: max(1.5em, calc(var(--doc-blank-chars, 4) * 0.52em));
+  height: 1em;
+  margin: 0 0.02em;
+  vertical-align: -0.12em;
+  white-space: nowrap;
+}
+.doc-blank-underline {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: -0.05em;
+  left: 0;
+  width: 100%;
+  height: 0.26em;
+  overflow: visible;
+  color: currentColor;
+  opacity: 0.88;
+  pointer-events: none;
+}
+.doc-blank > .doc-blank-underline {
+  top: calc(
+    var(--doc-blank-reference-baseline, 1em)
+    + var(--doc-blank-underline-offset, 0.22em)
+  );
+  bottom: auto;
+  transform: translateY(-50%);
+}
+.doc-blank-underline-primary,
+.doc-blank-underline-secondary {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.doc-blank-underline-primary {
+  stroke-width: 1.25px;
+}
+.doc-blank-underline-secondary {
+  opacity: 0.24;
+  stroke-width: 0.48px;
+}
+.doc-blank-baseline-marker {
+  display: inline-block;
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.doc-solid-blank-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.doc-callout {
+  /* Callout box == SVG rough rectangle box; content padding lives below. */
+  position: relative;
+  width: 100%;
+  max-width: none;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  padding: 0;
+  margin: 8px 0;
+  overflow: visible;
+}
+.doc-callout-content {
+  /* Keep inner spacing relative to the callout/SVG box, not the rough path bbox. */
+  position: relative;
+  z-index: 1;
+  padding: 11px 14px 12px;
+}
+.doc-callout-title {
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #8f2c22;
+  margin: 1px 0 7px;
+}
+/* 卡片与计划标题沿用讲解正文的宋体字体栈，靠字重和颜色区分层级。 */
+:root:lang(zh):not([data-font-preset="wenkai"]) :is(.doc-callout-title, .doc-plan-title) {
+  font-family: var(--board-font-sans);
+}
+.doc-callout[data-kind="key"] .doc-callout-title,
+.doc-callout[data-kind="knowledge"] .doc-callout-title {
+  color: #b83228;
+}
+.doc-callout[data-kind="knowledge"] .doc-callout-title {
+  display: inline-block;
+  padding: 3px 10px 4px;
+  border-radius: 999px;
+  background: rgba(247, 202, 78, 0.26);
+  color: #1f1a14;
+}
+.doc-callout[data-kind="method"] .doc-callout-title {
+  display: inline-block;
+  padding: 3px 10px 4px;
+  border-radius: 999px;
+  background: rgba(93, 132, 200, 0.18);
+  color: #365a96;
+}
+.doc-callout[data-kind="draft"] .doc-callout-title {
+  color: #6b6258;
+}
+.doc-callout[data-kind="warning"] .doc-callout-title {
+  color: #9a5717;
+}
+.doc-callout[data-kind="summary"] .doc-callout-title {
+  color: #477443;
+}
+.doc-callout[data-doc-id="knowledge_usage"] .doc-callout-title {
+  display: inline-block;
+  padding: 3px 10px 4px;
+  border-radius: 999px;
+  background: rgba(111, 154, 91, 0.18);
+}
+.doc-callout[data-doc-id="method_steps"] .doc-callout-title {
+  display: inline-block;
+  padding: 3px 10px 4px;
+  border-radius: 999px;
+  background: rgba(93, 132, 200, 0.14);
+  color: #365a96;
+}
+.doc-callout[data-doc-id="knowledge_usage"] .doc-callout-paragraph:first-child {
+  font-size: 1.08em;
+  font-weight: 650;
+  line-height: 1.55;
+}
+/* Callout 使用类型色纸张与标题，不显示顶部胶带装饰；开场提示卡由独立样式负责。 */
+.doc-callout:not([data-doc-id="opening-hint"]) {
+  --callout-k: #c4b08a;
+  --callout-paper: #fffdf6;
+  border-radius: 16px;
+  transform: rotate(-0.5deg);
+  background: color-mix(in srgb, var(--callout-k) 7%, var(--callout-paper));
+  box-shadow: none;
+}
+.doc-callout:not([data-doc-id="opening-hint"])::before {
+  content: none;
+}
+/* 黄色知识与关键方法卡片使用统一背景色。 */
+.doc-callout:not([data-doc-id="opening-hint"]):is([data-kind="knowledge"], [data-kind="key"]) {
+  background: #FFEFC8;
+}
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="knowledge"] { --callout-k: #e0b62c; }
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="key"] { --callout-k: #e8785a; }
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="warning"] { --callout-k: #e8a03c; }
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="method"] { --callout-k: #6b8fd4; }
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="summary"] { --callout-k: #70a863; }
+.doc-callout:not([data-doc-id="opening-hint"])[data-kind="draft"] { --callout-k: #9aa3b0; }
+.doc-callout:not([data-doc-id="opening-hint"]) .doc-callout-title {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: color-mix(in srgb, var(--callout-k) 72%, #000);
+}
+@media (prefers-color-scheme: dark) {
+  .doc-callout:not([data-doc-id="opening-hint"]) {
+    --callout-paper: #2b2e36;
+    box-shadow: none;
+  }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="knowledge"] { --callout-k: #d9ac3d; }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="key"] { --callout-k: #ee7a5d; }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="warning"] { --callout-k: #e3a23a; }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="method"] { --callout-k: #6e93dd; }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="summary"] { --callout-k: #62b277; }
+  .doc-callout:not([data-doc-id="opening-hint"])[data-kind="draft"] { --callout-k: #9aa3b0; }
+  .doc-callout:not([data-doc-id="opening-hint"]) .doc-callout-title {
+    background: none;
+    color: color-mix(in srgb, var(--callout-k) 70%, #fff);
+  }
+}
+.doc-callout-body {
+  line-height: 1.42;
+}
+.doc-callout-visual {
+  width: 100%;
+  margin: 0 0 0.72em;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.doc-callout-body > .doc-callout-visual:last-child {
+  margin-bottom: 0;
+}
+.doc-callout-visual .wb-block {
+  width: 100%;
+  margin: 0;
+}
+.doc-callout-visual .doc-chart {
+  padding: 0;
+}
+.doc-callout-visual .doc-chart-canvas {
+  height: 178px;
+}
+.doc-callout-paragraph {
+  white-space: pre-wrap;
+}
+.doc-callout-display-formula {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px 2px;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: normal;
+}
+.doc-callout-display-formula > .doc-formula {
+  margin: 0;
+}
+.doc-callout-annotated-formula {
+  position: relative;
+  min-height: 90px;
+  padding: 50px 4px 8px;
+  overflow: visible;
+}
+.doc-callout-annotated-formula > :not(.doc-annotated-formula-labels) {
+  position: relative;
+  z-index: 1;
+}
+.doc-annotated-formula-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  font-family: var(--board-font-cjk), var(--board-font-wenkai), "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+html:lang(zh-Hans) .doc-callout[data-kind="knowledge"] .doc-callout-paragraph,
+html[lang^="zh"] .doc-callout[data-kind="knowledge"] .doc-callout-paragraph,
+html:lang(zh-Hans) .doc-callout[data-kind="method"] .doc-callout-paragraph,
+html[lang^="zh"] .doc-callout[data-kind="method"] .doc-callout-paragraph {
+  /* CJK 标点由专用 span 确定性压缩，并允许行末标点悬挂。 */
+  hanging-punctuation: allow-end;
+  line-break: strict;
+}
+.doc-cjk-punctuation {
+  display: inline-block;
+  margin-inline-end: -0.5em;
+}
+.doc-callout-paragraph + .doc-callout-paragraph,
+.doc-callout-paragraph + .doc-callout-list,
+.doc-callout-list + .doc-callout-paragraph,
+.doc-callout-list + .doc-callout-list {
+  margin-top: 0.5em;
+}
+.doc-callout-list {
+  margin: 0;
+  padding-inline-start: 1.55em;
+}
+.doc-callout-list[data-style="numbered"] {
+  padding-inline-start: 1.9em;
+}
+.doc-callout-list > li {
+  padding-inline-start: 0.12em;
+  white-space: pre-wrap;
+}
+.doc-callout-list > li + li {
+  margin-top: 0.18em;
+}
+.doc-plan {
+  position: relative;
+  width: 100%;
+  padding: 10px 14px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.doc-plan-shape {
+  z-index: 0;
+}
+.doc-plan > :not(.doc-plan-shape) {
+  position: relative;
+  z-index: 1;
+}
+.doc-plan-title {
+  margin-bottom: 7px;
+  color: #62584b;
+  font-size: 0.88em;
+  font-weight: 800;
+}
+.doc-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-plan-item {
+  display: grid;
+  grid-template-columns: 1.25em minmax(0, 1fr);
+  align-items: baseline;
+  color: #625b52;
+}
+.doc-plan-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.78em;
+  line-height: 1;
+}
+.doc-plan-marker > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.doc-plan-item[data-status="done"] .doc-plan-marker {
+  border: 0;
+}
+.doc-plan-item[data-status="active"] {
+  color: #b45f22;
+  font-weight: 700;
+}
+.doc-plan-item[data-status="done"] {
+  color: #8b8175;
+}
+.doc-plan-item[data-status="done"] .doc-plan-item-content {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.doc-outline {
+  --doc-outline-count: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-height: 10px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+}
+.doc-outline-list {
+  display: grid;
+  grid-template-columns: repeat(var(--doc-outline-count), minmax(1px, 54px));
+  justify-content: center;
+  align-items: end;
+  gap: 4px;
+  width: min(100%, 360px);
+  height: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-outline > .doc-outline-list {
+  opacity: 0;
+}
+.doc-outline-item {
+  position: relative;
+  display: block;
+  min-width: 0;
+  height: 3px;
+  color: #d9dde2;
+  font-size: 0;
+  line-height: 0;
+}
+.doc-outline-item:not(:last-child)::after {
+  display: none;
+}
+.doc-outline-marker {
+  display: block;
+  width: 100%;
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: currentColor;
+  font-size: 0;
+  box-sizing: border-box;
+}
+.doc-outline-item-content {
+  display: none;
+}
+.doc-outline-item[data-status="active"] {
+  color: #b7d92f;
+}
+.doc-outline-item[data-status="active"] .doc-outline-marker {
+  background: currentColor;
+  box-shadow: none;
+}
+.doc-outline-item[data-status="done"] {
+  color: #57cc08;
+}
+.doc-outline-item[data-status="done"] .doc-outline-marker {
+  background: currentColor;
+}
+.doc-outline-item[data-status="done"]::after {
+  display: none;
+}
+.doc-stage-heading {
+  width: 100%;
+  margin: 0;
+  padding: 8px 2px 10px;
+  border: 0;
+  border-bottom: 0.5px solid var(--color-line-primary);
+  color: #3f3a34;
+  font-size: 1.08em;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: left;
+  box-sizing: border-box;
+}
+.doc-correction-group {
+  display: inline;
+  position: relative;
+}
+.doc-correction-source {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+.doc-correction {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.03em 0.14em;
+  margin-inline-start: 0.4em;
+  color: var(--correction-ink);
+  font-family: "LXGW WenKai", "Comic Shanns", cursive;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.doc-correction[data-correction-placement="below"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: var(--doc-correction-line-width);
+  margin-inline-start: 0;
+}
+.doc-correction-replaced:not(.doc-blank-write),
+.doc-correction-replaced mjx-container {
+  position: relative;
+}
+.doc-blank:has(.doc-correction-replaced) .doc-blank-crossmark {
+  visibility: hidden;
+}
+.doc-correction-replaced:not(:has(mjx-container))::after,
+.doc-correction-replaced mjx-container::after {
+  position: absolute;
+  top: 51%;
+  right: -3px;
+  left: -3px;
+  z-index: 3;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--correction-ink);
+  content: "";
+  pointer-events: none;
+  transform: rotate(5deg);
+}
+.doc-table {
+  width: 100%;
+  margin: 8px 0;
+  overflow: hidden;
+  border: 1px solid rgba(75, 69, 61, 0.34);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.42);
+}
+.doc-table-title {
+  padding: 9px 12px 6px;
+  font-weight: 750;
+}
+.doc-table-body {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.doc-table table {
+  width: 100%;
+  font-size: calc(1em * var(--qb-table-fit-scale, 1));
+  border-collapse: collapse;
+  /* 按内容分配列宽：行标签列（如 Parity）不再被压到与数字列一样窄。 */
+  table-layout: auto;
+}
+/* 短数据列（包括首列）居中、不换行；只有含正文名称的行标签列靠左。 */
+.doc-table [data-short-column] {
+  text-align: center;
+  white-space: nowrap;
+}
+.doc-table [data-row-label] {
+  text-align: left;
+}
+.doc-table-compact th[data-short-column] {
+  /* 短中文表头可以换行，不能仅因“低体重”等标签就把最后一列挤出栏位。 */
+  white-space: normal;
+}
+.doc-table.doc-table-compact th,
+.doc-table.doc-table-compact td {
+  padding-right: 5px;
+  padding-left: 5px;
+}
+.doc-table th,
+.doc-table td {
+  padding: 8px 10px;
+  border-top: 1px solid rgba(75, 69, 61, 0.25);
+  border-right: 1px solid rgba(75, 69, 61, 0.2);
+  text-align: left;
+  vertical-align: middle;
+}
+/* 正文表格中的长词也允许在栏宽内换行，短数字列继续沿用不换行规则。 */
+.doc-table th:not([data-short-column]),
+.doc-table td:not([data-short-column]) {
+  overflow-wrap: anywhere;
+}
+.doc-table th:last-child,
+.doc-table td:last-child {
+  border-right: 0;
+}
+.doc-table th {
+  background: rgba(75, 69, 61, 0.06);
+  font-weight: 750;
+}
+.doc-table th.doc-table-corner-header {
+  position: relative;
+  height: 64px;
+  min-width: 112px;
+  overflow: hidden;
+  padding: 0;
+}
+.doc-table-corner-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.doc-table-corner-line line {
+  stroke: rgba(75, 69, 61, 0.42);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.doc-table-corner-label {
+  position: absolute;
+  z-index: 1;
+  max-width: calc(62% - 8px);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-table-corner-row-label {
+  bottom: 7px;
+  left: 8px;
+}
+.doc-table-corner-column-label {
+  top: 7px;
+  right: 8px;
+  text-align: right;
+}
+.doc-label,
+.doc-teaching-point {
+  position: absolute;
+  z-index: 5;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.doc-label-title,
+.doc-teaching-point-title {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+  color: #d63b32;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.doc-chart {
+  width: 100%;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px;
+}
+.wb-block[data-chrome="immersive"] .doc-chart {
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.doc-chart-title {
+  font-weight: 750;
+  margin-bottom: 8px;
+}
+.doc-chart-title:empty {
+  display: none;
+}
+.doc-chart-canvas {
+  display: block;
+  width: 100%;
+  height: 260px;
+}
+
+.doc-chart-series {
+  --doc-chart-series-edge: 2px;
+  position: relative;
+  width: 100%;
+}
+
+.doc-chart-series-button {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(67, 88, 115, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 252, 242, 0.92);
+  color: #52647c;
+  cursor: pointer;
+  touch-action: manipulation;
+  transform: translateY(-50%);
+}
+
+.doc-chart-series-button-previous {
+  left: var(--doc-chart-series-edge);
+}
+
+.doc-chart-series-button-next {
+  right: var(--doc-chart-series-edge);
+}
+
+.doc-chart-series-button:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+.doc-chart-series-chevron {
+  width: 12px;
+  height: 12px;
+  background: center / contain no-repeat;
+}
+
+.doc-chart-series-button-previous .doc-chart-series-chevron {
+  background-image: url("/quizboard/arrow-left-1.svg");
+}
+
+.doc-chart-series-button-next .doc-chart-series-chevron {
+  background-image: url("/quizboard/arrow-right-1.svg");
+}
+
+.doc-chart-series-status {
+  position: absolute;
+  right: calc(var(--doc-chart-series-edge) + 2px);
+  bottom: 0;
+  color: rgba(67, 88, 115, 0.58);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.doc-label-group {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  pointer-events: none;
+}
+
+.doc-label-group-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.doc-problem-media {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.doc-problem-media > [data-wb-block="1"] {
+  /* 组合容器自己管理间距，避免全局 block 底部留白被算进题图外框。 */
+  margin-bottom: 0;
+}
+/* 原题图片外层与裁切区均跟随参考栏底色，避免图形周围出现独立白块。 */
+.doc-problem-media .doc-asset {
+  background: var(--reference-paper);
+  /* 媒体图的白底像素始终与参考栏纸色合成，包括过渡和淡入状态。 */
+  isolation: isolate;
+}
+.doc-problem-media .doc-asset-image.doc-problem-media-image-pending,
+.doc-problem-media .doc-asset-html img.doc-problem-media-image-pending {
+  /* 图片解码及题图区底色合成准备好前保持隐藏，避免提交流程中先闪出原图白底。 */
+  visibility: hidden;
+}
+/* 原题的多张图各成题图区的一页：叠在同一格里，组合高度取最高的一张，切页只显示当前一张（用户 2026-10-11）。 */
+.doc-problem-media.doc-problem-media-deck {
+  display: grid;
+  /* 叠页始终使用栏位宽度，不能让任一页的内容最小宽度撑开整组题图。 */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+.doc-problem-media.doc-problem-media-deck > [data-wb-block="1"] {
+  grid-area: 1 / 1;
+  min-width: 0;
+  align-self: start;
+}
+.doc-asset {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(216, 207, 192, 0.88);
+  border-radius: 12px;
+  /* 资产外框不补白纸底色；由所在栏位提供背景，加载切换时也不会闪白。 */
+  background: transparent;
+  overflow: hidden;
+}
+.doc-asset-image,
+.doc-asset-html img,
+.doc-asset-html svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.doc-asset-html figure {
+  margin: 0;
+}
+.doc-asset-html .figure-crop {
+  border-radius: 8px;
+  background: var(--reference-paper);
+}
+.doc-asset-html .figure-crop img {
+  max-width: none;
+}
+.doc-asset-html {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.45;
+}
+.doc-asset-html ul,
+.doc-asset-html ol {
+  margin: 10px 0 0 22px;
+  padding: 0;
+}
+.doc-asset-caption {
+  margin-top: 8px;
+  color: rgba(31, 26, 20, 0.68);
+  font-size: 13px;
+  line-height: 1.35;
+}
+/* 选项按普通试卷排：“(A) 内容”与题干同字号，不画卡片（用户 2026-10-05：选项卡很大、讲解中不起作用也不能点）。
+   带图的选项保留一层淡卡片，图与序号才分得开。 */
+.doc-choices {
+  display: grid;
+  grid-template-columns: repeat(var(--doc-choice-columns, 1), minmax(0, 1fr));
+  gap: 4px 18px;
+  width: 100%;
+  padding: 2px 0;
+}
+.doc-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  /* 编号与正文首行共用基线，不能按整块多行正文或附图的高度居中。 */
+  align-items: first baseline;
+  gap: 6px;
+  padding: 2px 0;
+}
+/* 注释留白属于被标注选项的下沿，同排其它选项不拉高、不把正文垂直移到注释行。 */
+.qb-choices-annotated > .doc-choice { align-self: start; }
+.doc-choice-label {
+  font-weight: 600;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+.doc-choice-label::before { content: "("; }
+.doc-choice-label::after { content: ")"; }
+.doc-choice[data-content-kind="visual"],
+.doc-choice[data-content-kind="mixed"] {
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(216, 207, 192, 0.7);
+  border-radius: 10px;
+  background: rgba(255, 253, 248, 0.6);
+}
+/* 纯图片选项没有文字基线，编号仍与图片垂直居中。 */
+.doc-choice[data-content-kind="visual"]:not(:has(.doc-choice-content)) { align-items: center; }
+.doc-choice-body {
+  display: flex;
+  flex-direction: row;
+  /* 将正文首行基线传给外层网格，附图高度不能改变编号与文字的对齐。 */
+  align-items: first baseline;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.55;
+}
+/* 只有文字的选项使用普通行盒直接提供首行基线，避免 WebKit 从嵌套 flex 合成基线导致编号下沉。 */
+.doc-choice-body:has(> .doc-choice-content):not(:has(> .wb-block)) {
+  display: block;
+}
+/* 选项里的原图引用是独立段落：清除正文块的 16px 下间距，避免整块居中时文字被顶到上方。 */
+.doc-choice-body > .wb-block:has(> .doc-paragraph) {
+  margin-bottom: 0;
+}
+.doc-choice-body > .wb-block > .doc-paragraph {
+  line-height: inherit;
+}
+.doc-choice-content {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* 离屏选列测量先禁止正文和 MathJax 内部折行，包含序号、间距及实际字形宽度。 */
+.doc-choices-measuring > .doc-choice {
+  width: max-content;
+  grid-template-columns: auto max-content;
+}
+.doc-choices-measuring .doc-choice-content,
+.doc-choices-measuring mjx-break {
+  white-space: nowrap;
+}
+.doc-choice[data-content-kind="visual"] .doc-choice-body {
+  gap: 0;
+}
+.doc-choice-body > .wb-block {
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 0;
+}
+.doc-choice-body > .wb-inline-figure {
+  flex: 0 1 var(--qb-inline-figure-width, 72px);
+  width: min(100%, var(--qb-inline-figure-width, 72px));
+  margin-inline: 0;
+  height: var(--qb-inline-figure-height, min(72px, 3lh));
+  max-height: var(--qb-inline-figure-height, 3lh);
+  overflow: hidden;
+  pointer-events: none;
+}
+.doc-choice-body > .wb-inline-figure .wb-figure {
+  width: 100%;
+  height: 100%;
+  max-height: var(--qb-inline-figure-height, 3lh);
+  min-height: 0;
+}
+/* 原图选项使用实际裁切比例铺满可用行宽，不套用原生坐标图的近方形画布。 */
+.doc-choice-body > .wb-inline-source-preview {
+  flex: 1 1 var(--qb-inline-figure-width, 72px);
+  width: 100%;
+  height: auto;
+  max-height: none;
+}
+.doc-choice-body > .wb-inline-source-preview .wb-figure {
+  height: auto;
+  max-height: none;
+}
+.doc-choice-body > .wb-inline-source-preview .wb-figure-source-preview-viewport {
+  max-height: var(--qb-inline-figure-height, 3lh);
+  border-radius: 0;
+  background: transparent;
+}
+.doc-choice-body > .wb-inline-source-preview .wb-figure-source-preview-crop {
+  /* 小图的轴端、标签可能紧贴裁切框，不能被装饰圆角再次裁掉。 */
+  border-radius: 0;
+}
+.doc-connector-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 5;
+}
+.doc-layout-debug-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 80;
+  overflow: visible;
+  pointer-events: none;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+}
+.doc-layout-debug-connectors {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+.doc-layout-debug-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(0, 122, 255, 0.92);
+  background: rgba(0, 122, 255, 0.035);
+}
+.doc-layout-debug-mascot-anchor-element {
+  outline: 3px solid rgba(255, 149, 0, 0.98) !important;
+  outline-offset: 4px;
+  background-color: rgba(255, 149, 0, 0.08) !important;
+}
+.doc-layout-debug-highlight-anchor {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #ff3b30;
+  pointer-events: none;
+}
+.doc-layout-debug-box-label,
+.doc-layout-debug-connector-label {
+  position: absolute;
+  display: block;
+  width: max-content;
+  max-width: 520px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: #fff;
+  background: rgba(0, 83, 180, 0.9);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+.doc-layout-debug-box-label {
+  top: 0;
+  left: 0;
+}
+.doc-layout-debug-connector-label {
+  z-index: 2;
+  background: rgba(157, 0, 193, 0.9);
+}
+.doc-layout-debug-connector-route,
+.doc-layout-debug-connector-skeleton {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.doc-layout-debug-connector-route {
+  stroke: rgba(217, 0, 255, 0.95);
+  stroke-width: 1.5;
+}
+.doc-layout-debug-connector-skeleton {
+  stroke: rgba(157, 0, 193, 0.92);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+.doc-layout-debug-connector-skeleton.is-control-polygon {
+  stroke: rgba(255, 45, 85, 0.88);
+  stroke-dasharray: 4 4;
+}
+.doc-layout-debug-connector-node {
+  fill: #fff;
+  stroke: rgba(157, 0, 193, 0.95);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.doc-layout-debug-connector-node[data-role="start"] {
+  fill: #34c759;
+}
+.doc-layout-debug-connector-node[data-role="end"] {
+  fill: #ff3b30;
+}
+.ggb-host {
+  width: 100%;
+  min-height: 360px;
+}
+.boardggb-svg {
+  display: block;
+  background: transparent;
+}
+.boardggb-svg .wb-axis2d-label,
+.boardcalc-svg .wb-axis2d-label {
+  fill: var(--muted-ink);
+  stroke: var(--surface);
+}
+.boardcalc {
+  width: 100%;
+  color: #1f1a14;
+}
+.boardcalc-frame {
+  display: grid;
+  grid-template-rows: auto;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.boardcalc-frame-with-parameters {
+  grid-template-rows: auto auto;
+}
+.boardcalc-canvas {
+  position: relative;
+  min-width: 0;
+  touch-action: pan-y;
+  user-select: none;
+  cursor: grab;
+}
+.wb-block.wb-block-selected .boardcalc-canvas {
+  touch-action: none;
+}
+.boardcalc-canvas.is-gesturing {
+  cursor: grabbing;
+}
+/* 参数动起来时的读数（“x = 0.62”），左上角、不挡手势，动完停在终值。 */
+.boardcalc-readout {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  z-index: 3;
+  padding: 2px 9px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--paper, #fffdf8) 88%, transparent);
+  box-shadow: 0 0 0 1px var(--border, rgba(0, 0, 0, 0.08));
+  color: var(--ink, #1f1a14);
+  font: 600 15px/1.45 "Times New Roman", "Songti SC", serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  animation: boardcalc-readout-in 220ms ease-out;
+}
+@keyframes boardcalc-readout-in {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boardcalc-readout { animation: none; }
+}
+.boardcalc-geometry {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.boardcalc-geometry > svg {
+  width: 100%;
+  height: auto;
+}
+.boardcalc-frame-with-parameters .boardcalc-canvas {
+  border-bottom: 1px solid rgba(31, 26, 20, 0.1);
+}
+.boardcalc-panel {
+  min-width: 0;
+}
+.boardcalc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.boardcalc-legend {
+  display: grid;
+  background: rgba(255, 255, 255, 0.5);
+}
+.boardcalc-legend:empty {
+  display: none;
+}
+.boardcalc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(31, 26, 20, 0.07);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.boardcalc-legend-item.is-error {
+  color: #8b8175;
+  text-decoration: line-through;
+}
+.boardcalc-swatch {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.boardcalc-expression {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.boardcalc-expression mjx-container {
+  margin: 0 !important;
+}
+.boardcalc-sliders {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  background: rgba(255, 255, 255, 0.34);
+}
+.boardcalc-slider {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 10px;
+  min-height: 42px;
+}
+.boardcalc-slider-icon-button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  place-items: center;
+  color: #817970;
+  background: transparent;
+  cursor: pointer;
+}
+.boardcalc-slider-icon-button:hover,
+.boardcalc-slider-icon-button[aria-expanded="true"] {
+  color: var(--accent);
+  background: rgba(111, 102, 92, 0.1);
+}
+.boardcalc-slider-icon-button:focus-visible {
+  outline: 2px solid rgba(111, 102, 92, 0.52);
+  outline-offset: 1px;
+}
+.boardcalc-slider-icon {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+.boardcalc-slider-content {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+}
+.boardcalc-slider-value {
+  font-family: var(--board-font-cjk), var(--board-font-comic), var(--board-font-wenkai), "PingFang SC", sans-serif;
+  font-size: 13px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #514a42;
+}
+.boardcalc-slider-settings {
+  position: absolute;
+  inset: 0 0 0 22px;
+  z-index: 2;
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  padding: 3px 5px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.96);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    visibility 0s linear 140ms;
+}
+.boardcalc-slider-settings[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boardcalc-slider-settings,
+  .boardcalc-slider-settings[data-open="true"] {
+    transition: none;
+  }
+}
+.boardcalc-slider-setting {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  font-family: var(--board-font-cjk), var(--board-font-wenkai), "PingFang SC", sans-serif;
+  font-size: 9px;
+  line-height: 10px;
+  color: #817970;
+}
+.boardcalc-slider-setting-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  padding: 2px 5px;
+  border: 1px solid rgba(107, 98, 88, 0.2);
+  border-radius: 6px;
+  outline: 0;
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #514a42;
+  background: rgba(255, 255, 255, 0.84);
+}
+.boardcalc-slider-setting-input:focus {
+  border-color: rgba(111, 102, 92, 0.64);
+  box-shadow: 0 0 0 2px rgba(111, 102, 92, 0.12);
+}
+.boardcalc-slider-setting-input::placeholder {
+  color: #a39b91;
+  opacity: 1;
+}
+.boardcalc-slider-setting-input[aria-invalid="true"] {
+  border-color: #d9544d;
+}
+@property --boardcalc-slider-thumb-size {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 6px;
+}
+.boardcalc-slider-input {
+  --boardcalc-slider-thumb-size: 6px;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  transition: --boardcalc-slider-thumb-size 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.boardcalc-slider-input.is-thumb-hovered,
+.boardcalc-slider-input:active {
+  --boardcalc-slider-thumb-size: 18px;
+}
+.boardcalc-slider-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(107, 98, 88, 0.16);
+}
+.boardcalc-slider-input::-webkit-slider-thumb {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, var(--accent) 100%, transparent 100%)
+    center / var(--boardcalc-slider-thumb-size) var(--boardcalc-slider-thumb-size) no-repeat,
+    rgba(111, 102, 92, 0.26);
+  -webkit-appearance: none;
+}
+.boardcalc-slider-input::-moz-range-track {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(107, 98, 88, 0.16);
+}
+.boardcalc-slider-input::-moz-range-progress {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(107, 98, 88, 0.16);
+}
+.boardcalc-slider-input::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, var(--accent) 100%, transparent 100%)
+    center / var(--boardcalc-slider-thumb-size) var(--boardcalc-slider-thumb-size) no-repeat,
+    rgba(111, 102, 92, 0.26);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #101216;
+    --surface: #1a1d23;
+    --reference-paper: #171a1f;
+    --ink: #f3f5f7;
+    --muted-ink: #aeb6c2;
+    --accent: #b7bdc7;
+    --student-input-ink: #8fa5ff;
+    --student-input-capture-ink: #a9c4ff;
+    --correction-ink: #ff827c;
+    --border: #3a3f48;
+    --toolbar-accent: #72d795;
+    --toolbar-highlight: rgba(85, 205, 122, 0.14);
+    --toolbar-highlight-soft: rgba(85, 205, 122, 0.09);
+    --toolbar-highlight-strong: rgba(85, 205, 122, 0.2);
+  }
+
+  .board-canvas {
+    --accent: #b7bdc7;
+  }
+
+  .board-canvas.grid-on {
+    background:
+      linear-gradient(#0000 23px, #292d34 24px) 0 0 / 24px 24px,
+      linear-gradient(90deg, #0000 23px, #292d34 24px) 0 0 / 24px 24px,
+      var(--paper);
+  }
+
+  .doc-split-scroll-thumb {
+    background: #3a3f48;
+  }
+  .doc-page-divider,
+  .doc-stage-heading {
+    border-color: rgba(127, 136, 148, 0.42);
+  }
+
+  .wb-latex,
+  .doc-pathway-node,
+  .doc-table,
+  .boardcalc-legend,
+  .boardcalc-sliders {
+    background: rgba(32, 35, 41, 0.9);
+  }
+  .wb-figure-source-preview-viewport {
+    background: rgba(36, 40, 48, 0.82);
+  }
+  .qb-figure-animation-notice,
+  .qb-figure-animation-notice-tooltip,
+  .qb-play-subtitle,
+  .qb-play-controls,
+  .wb-figure > .qb-play-controls.qb-play-controls-inline,
+  .wb-block-toolbar,
+  .wb-axis2d-settings-menu,
+  .wb-figure-debug-menu,
+  .wb-block-toolbar.is-view-dragging {
+    border-color: rgba(58, 63, 72, 0.94);
+    background: rgba(26, 29, 35, 0.94);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  }
+  .qb-figure-animation-notice-trigger,
+  .qb-figure-animation-notice-tooltip,
+  .wb-axis2d-settings-label,
+  .wb-debug-group-button::after,
+  .qb-play-time,
+  .doc-pathway-subtitle,
+  .doc-asset-caption {
+    color: var(--muted-ink);
+  }
+
+  .qb-play-controls button,
+  .qb-play-controls select,
+  .wb-axis2d-zoom-control,
+  .wb-axis2d-ratio-input,
+  .boardcalc-slider-settings,
+  .boardcalc-slider-setting-input {
+    border-color: #3a3f48;
+    background: #242830;
+    color: var(--ink);
+  }
+  .qb-play-controls-inline .qb-play-progress::-webkit-slider-thumb,
+  .qb-play-controls-inline .qb-play-progress::-moz-range-thumb {
+    border-color: #1a1d23;
+  }
+
+  .doc-pathway-copy,
+  .doc-table th,
+  .doc-table td,
+  .boardcalc-frame-with-parameters .boardcalc-canvas,
+  .boardcalc-legend-item {
+    border-color: rgba(127, 136, 148, 0.28);
+  }
+  .doc-table-corner-line line {
+    stroke: rgba(174, 182, 194, 0.48);
+  }
+  .doc-pathway-title,
+  .doc-stage-heading,
+  .boardcalc,
+  .boardcalc-slider-value,
+  .boardcalc-slider-setting-input {
+    color: var(--ink);
+  }
+  .doc-pathway-arrow path {
+    stroke: rgba(174, 182, 194, 0.78);
+  }
+  .wb-host-action:focus-visible {
+    outline-color: rgba(174, 182, 194, 0.42);
+  }
+
+  .doc-plan-title,
+  .doc-plan-item,
+  .doc-stage-heading,
+  .boardcalc-slider-icon-button,
+  .boardcalc-slider-setting {
+    color: var(--muted-ink);
+  }
+  .doc-plan-shape [fill] {
+    fill: #242830 !important;
+  }
+  .doc-callout-title,
+  .doc-callout[data-kind="key"] .doc-callout-title {
+    color: #ff8d86;
+  }
+  .doc-callout[data-kind="knowledge"] .doc-callout-title {
+    background: rgba(242, 173, 68, 0.18);
+    color: #f6ca7b;
+  }
+  .doc-callout[data-kind="method"] .doc-callout-title {
+    background: rgba(110, 151, 224, 0.18);
+    color: #a9c6fa;
+  }
+  .doc-callout[data-kind="draft"] .doc-callout-title {
+    color: var(--muted-ink);
+  }
+  .doc-callout[data-kind="warning"] .doc-callout-title {
+    color: #f2ad44;
+  }
+  .doc-callout[data-kind="summary"] .doc-callout-title {
+    color: #72d795;
+  }
+  .doc-callout[data-doc-id="knowledge_usage"] .doc-callout-title {
+    background: rgba(85, 205, 122, 0.14);
+  }
+  .doc-callout[data-doc-id="method_steps"] .doc-callout-title {
+    background: rgba(110, 151, 224, 0.14);
+    color: #a9c6fa;
+  }
+
+  .doc-chart-series-button,
+  .doc-asset,
+  .doc-choice[data-content-kind="visual"],
+  .doc-choice[data-content-kind="mixed"] {
+    border-color: rgba(58, 63, 72, 0.9);
+    background: rgba(31, 34, 41, 0.92);
+  }
+  .doc-chart-series-chevron {
+    filter: invert(1) brightness(1.35);
+  }
+
+  .boardcalc-slider-settings,
+  .boardcalc-slider-setting-input {
+    background: rgba(36, 40, 48, 0.98);
+  }
+  .boardcalc-slider-input::-webkit-slider-runnable-track,
+  .boardcalc-slider-input::-moz-range-track,
+  .boardcalc-slider-input::-moz-range-progress {
+    background: rgba(174, 182, 194, 0.24);
+  }
+  .boardcalc-slider-input::-webkit-slider-thumb,
+  .boardcalc-slider-input::-moz-range-thumb {
+    background:
+      radial-gradient(circle closest-side, var(--accent) 100%, transparent 100%)
+      center / var(--boardcalc-slider-thumb-size) var(--boardcalc-slider-thumb-size) no-repeat,
+      rgba(174, 182, 194, 0.34);
+  }
+
+  .boardggb-svg [stroke="#1f1a14"],
+  .boardggb-svg [stroke="#352f28"],
+  .boardcalc-svg [stroke="#1f1a14"],
+  .doc-label-group [stroke="#1f1a14"] {
+    stroke: var(--ink);
+  }
+  .boardggb-svg [fill="#1f1a14"],
+  .boardcalc-svg [fill="#1f1a14"],
+  .doc-label-group [fill="#1f1a14"] {
+    fill: var(--ink);
+  }
+  .boardggb-svg [stroke="rgba(255, 253, 248, 0.78)"],
+  .boardggb-svg [stroke="rgba(255, 253, 248, 0.84)"] {
+    stroke: rgba(26, 29, 35, 0.84);
+  }
+  .boardggb-svg [fill="#fffdf8"],
+  .boardcalc-svg [fill="#fffdf8"] {
+    fill: var(--surface);
+  }
+}
+/* 题干准备只呈现中性骨架；内容到达后由短淡入接手，不模仿老师朗读。 */
+.doc-reader-preparation {
+  min-height: 104px;
+}
+.doc-reader-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 7px 0 13px;
+  max-width: 680px;
+}
+.doc-reader-skeleton-line {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: currentColor;
+  opacity: .08;
+  animation: qb-reader-skeleton-breathe 1.8s ease-in-out infinite;
+}
+.doc-reader-skeleton-line:nth-child(2) { width: 88%; animation-delay: .15s; }
+.doc-reader-skeleton-line:nth-child(3) { width: 58%; animation-delay: .3s; }
+.doc-reader-preparation-label {
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: .58;
+}
+.doc-reader-preparation[data-preparation="failed"] { min-height: 28px; }
+@keyframes qb-reader-skeleton-breathe {
+  50% { opacity: .16; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-reader-skeleton-line { animation: none; }
+}
+
+/* ------------------------------------------------------------------------- */
+/* 边讲边画 v1（board_draw v1）：墨迹、连线标注、分段书写、聚焦与一段一版     */
+/* ------------------------------------------------------------------------- */
+.qb-play-reveal-unit.qb-play-reveal-waiting {
+  opacity: 0 !important;
+  animation: none !important;
+}
+.qb-ink-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+.qb-figure-ink-layer {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+.qb-figure-ink-layer path {
+  vector-effect: non-scaling-stroke;
+}
+.qb-draw-label {
+  /* 靠近栏边时仍按文字固有宽度测量，避免绝对定位的自动宽度收缩成单字列。 */
+  width: max-content;
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: var(--board-font-hand);
+  font-size: 17px;
+  line-height: 1.25;
+  text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper);
+}
+.qb-draw-label[data-align="middle-left"] { transform: translate(0, -50%); }
+.qb-draw-label[data-align="middle-right"] { transform: translate(-100%, -50%); }
+.qb-draw-label[data-align="top-center"] { transform: translate(-50%, 0); }
+.qb-draw-label[data-align="bottom-center"] { transform: translate(-50%, -100%); }
+.qb-draw-label[data-align="bottom-left"] { transform: translate(0, -100%); }
+.qb-draw-connector-label-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: visible;
+  pointer-events: none;
+}
+.qb-draw-anchor {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+.doc-draw-page-head {
+  position: relative;
+}
+/* 本节的关键方法卡公开后，节标题右端亮出“关键”徽标（refreshKeySectionBadges）。徽标绝对定位，标题右侧常驻留出
+   徽标宽度：亮起前后换行与排版高度不变，窄栏（iPhone）里折行的长标题也不会被盖住。 */
+.doc-stage-heading {
+  padding-right: calc(2px + 2.6em);
+}
+.doc-stage-heading[data-key-section] {
+  position: relative;
+}
+.doc-stage-heading[data-key-section]::after {
+  content: "关键";
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  padding: 0.12em 0.6em;
+  border-radius: 999px;
+  background: #e8785a;
+  color: #fff;
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  transform: translateY(-50%);
+  animation: qb-key-section-badge 360ms ease-out;
+}
+html[lang^="en"] .doc-stage-heading[data-key-section]::after {
+  content: "Key";
+}
+@keyframes qb-key-section-badge {
+  from { opacity: 0; transform: translateY(-50%) scale(0.75); }
+}
+@media (prefers-color-scheme: dark) {
+  .doc-stage-heading[data-key-section]::after { background: #ee7a5d; color: #1b1e24; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-stage-heading[data-key-section]::after { animation: none; }
+}
+.doc-draw-page-echo {
+  position: relative;
+  margin-top: 8px;
+}
+.doc-draw-page-echo > .wb-block,
+.doc-draw-page-echo .wb-figure {
+  height: 100%;
+}
+.doc-draw-page-echo .boardggb-svg {
+  height: 100% !important;
+}
+.boardggb-svg.qb-draw-focus [data-boardggb-object]:not(.qb-draw-focus-target):not([data-boardggb-object] *) {
+  opacity: 0.35;
+  transition: opacity 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boardggb-svg.qb-draw-focus [data-boardggb-object] {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* 边讲边画 v2（board_draw v2）：推导链 / 格子 / 树、连线标注、公式折行         */
+/* ------------------------------------------------------------------------- */
+.qb-draw-label[data-align="top-left"] { transform: none; }
+.qb-structure {
+  position: relative;
+  color: var(--ink);
+  line-height: 1.5;
+  font-family: var(--board-font-hand);
+  max-width: 100%;
+}
+.qb-arithmetic { overflow-x: auto; overscroll-behavior-x: contain; }
+.qb-arithmetic-body { position: relative; font-variant-numeric: tabular-nums; }
+.qb-arithmetic-item {
+  position: absolute;
+  width: 1.4em;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.qb-arithmetic-carry, .qb-arithmetic-borrow, .qb-arithmetic-strike { color: var(--qb-draw-blue, var(--qb-pen-blue)); }
+.qb-arithmetic-carry .qb-arithmetic-text, .qb-arithmetic-borrow .qb-arithmetic-text { font-size: 0.65em; }
+.qb-arithmetic-rule { height: 0; border-top: 1.5px solid currentColor; }
+.qb-arithmetic-bracket { width: 0; border-left: 1.5px solid currentColor; }
+.qb-arithmetic-strike::after { content: ""; width: 0.9em; border-top: 1.5px solid currentColor; transform: rotate(-20deg); }
+.doc-positioned-block[data-layout-role="column"] > .qb-structure,
+.doc-measure-item > [data-layout-role="column"] > .qb-structure,
+.doc-row:not(.doc-row-wide) .doc-col > .wb-block > .qb-structure {
+  width: fit-content;
+  max-width: calc(100% - var(--doc-column-indent, 16px));
+  margin-inline: var(--doc-column-indent, 16px) 0;
+}
+.qb-structure.qb-structure-scaled {
+  font-size: calc(var(--qb-structure-scale, 1) * 100%);
+}
+.qb-structure.qb-structure-overflow {
+  overflow-x: auto;
+}
+.qb-structure svg.qb-derivation-arc,
+.qb-structure svg.qb-derivation-strike,
+.qb-structure svg.qb-tree-elbow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.qb-structure .doc-formula {
+  margin: 0;
+}
+/* 推导链：lhs 右对齐、rel 居中成一列、rhs 左对齐；note 在右侧（老师批注色、楷体）。 */
+.qb-derivation-body {
+  display: grid;
+  grid-template-columns: fit-content(var(--qb-derivation-lhs-max, 100000px)) var(--qb-derivation-rel-width, max-content) fit-content(var(--qb-derivation-rhs-max, 100000px)) max-content;
+  column-gap: 8px;
+  /* 字号增大时同步加大推导行距，为重算后的弧线留足纵向空间。 */
+  row-gap: calc(6px * var(--qb-user-text-scale, 1));
+  /* 多行右式与左式、关系符共享第一行基线，不能把等号移到后续推导中间。 */
+  align-items: first baseline;
+  padding: 4px 18px 4px 2px;
+}
+.qb-derivation-lhs { grid-column: 1; justify-self: end; min-width: 0; }
+.qb-derivation-rel { grid-column: 2; justify-self: center; }
+.qb-derivation-rhs { grid-column: 3; justify-self: start; min-width: 0; }
+.qb-derivation-cell[data-structure-gap-before="1"] { margin-top: calc(16px * var(--qb-user-text-scale, 1)); }
+.qb-derivation-note {
+  grid-column: 4;
+  justify-self: start;
+  padding-left: 22px;
+  color: var(--qb-draw-blue);
+  font-size: 0.86em;
+  white-space: nowrap;
+}
+.qb-derivation-note[data-empty="1"] { padding-left: 0; }
+/* 放不进右侧 note 列的 note 挪到本行上方（上一行与本行之间），右对齐到本行右端，⤵ 弧线在其右侧经过。 */
+.qb-derivation-note[data-note-placement="above"] {
+  grid-column: 1 / 4;
+  justify-self: end;
+  padding-left: 0;
+  margin-bottom: -4px;
+}
+.qb-derivation-cell[data-gap-on-note="1"] { margin-top: 0; }
+/* v14 行末判定（✓ 绿勾、✗ 红叉）紧贴这一行的结果：右式留出标记的位置，标记由 fitDerivation 定位（不单占一列——跨列的
+   长左式会把多出的宽度分给前面的列，叉被挤到最右）；✗ 的一行红笔划去，整块写完后变淡。 */
+.qb-derivation-body[data-has-status="1"] > .qb-derivation-rhs { padding-right: 1.5em; }
+.qb-derivation-status { grid-column: 3; width: 0; height: 0; }
+.qb-derivation-status > .qb-tree-status { position: absolute; display: block; }
+.qb-derivation-cell[data-row-status="cross"] { transition: opacity 360ms ease; }
+.qb-derivation-body:not(:has(.qb-play-reveal-unit, .qb-play-reveal-math-unit, .qb-play-reveal-waiting))
+  > .qb-derivation-cell[data-row-status="cross"] { opacity: 0.5; }
+/* v14 认领分类讨论一类的推导链：顶上这一类的序号与条件、左边一条这一类颜色的线；指着或正在写别的类时变淡，✗ 的一类讲完
+   后连同卡片一起变淡、条件划掉。 */
+.qb-derivation-claimed { transition: opacity 220ms ease; }
+.qb-derivation-claimed > .qb-derivation-body { padding-left: 26px; }
+.qb-derivation-claimed::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 2.05em;
+  bottom: 6px;
+  width: 2.6px;
+  border-radius: 2px;
+  background: var(--qb-case-color);
+  opacity: 0.85;
+}
+.qb-derivation-case { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
+.qb-derivation-claimed.qb-case-dimmed { opacity: 0.5; }
+.qb-derivation-claimed[data-case-status="cross"]:not(.qb-case-focus) { opacity: 0.55; }
+.qb-derivation-claimed[data-case-status="cross"] > .qb-derivation-case .qb-case-condition { text-decoration: line-through; }
+/* 格子：slots 等宽手绘方框、字号大一档；table 细线表格、紧凑。 */
+.qb-grid-body {
+  display: grid;
+  grid-template-columns: repeat(var(--qb-grid-band-columns, var(--qb-grid-columns, 1)), var(--qb-grid-cell-w, max-content));
+  gap: 6px;
+  padding: 4px 2px;
+}
+.qb-grid-header {
+  text-align: center;
+  font-size: 0.86em;
+  color: var(--muted-ink);
+  line-height: 1.3;
+  align-self: end;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.qb-grid-body > [data-grid-band-start="1"] { margin-top: 10px; }
+.qb-grid-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9em;
+  padding: 3px 8px;
+  font-size: 1.25em;
+  line-height: 1.3;
+}
+.qb-grid-content { white-space: nowrap; }
+.qb-grid-cell[data-structure-gap-before="1"] { margin-top: 16px; }
+.qb-grid-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.qb-grid[data-grid-style="table"] .qb-grid-body {
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  padding: 0;
+  grid-template-columns: repeat(var(--qb-grid-columns, 1), auto);
+  max-width: 100%;
+}
+.qb-grid[data-grid-style="table"] .qb-grid-content {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+/* 表头随当前栏宽换行，不能溢入相邻列；旋转后由 CSS 重新分配行高。 */
+.qb-grid[data-grid-style="table"] .qb-grid-header { white-space: normal; }
+.qb-grid-header[data-header-span-hidden="1"] { display: none; }
+.qb-grid-header[data-header-span]:not([data-header-span="1"]) { text-align: center; }
+.qb-grid.qb-grid-squeeze .qb-grid-content { white-space: normal; }
+.qb-grid[data-grid-style="table"] .qb-grid-header,
+.qb-grid[data-grid-style="table"] .qb-grid-cell {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 3px 10px;
+  min-height: 0;
+  font-size: 1em;
+  align-self: stretch;
+}
+/* 正文格允许随栏宽收缩；含公式的格子保留数学排版所需最小宽度。 */
+.qb-grid[data-grid-style="table"] .qb-grid-cell:not(:has(.doc-formula)) {
+  min-width: 0;
+}
+.qb-grid[data-grid-style="table"] .qb-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  font-size: 0.92em;
+  border-bottom-color: var(--muted-ink);
+}
+/* 表头内部使用普通行内排版，文字、括号和公式共用可用宽度与换行规则。 */
+.qb-grid-header-content {
+  min-width: 0;
+  max-width: 100%;
+}
+/* 树：根在左上，每级缩进 24pt；分支条件标在横线上方；✗ 的节点内容 55% 不透明度。 */
+.qb-tree {
+  padding: 2px 4px 4px 2px;
+}
+.qb-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: calc(var(--qb-tree-depth, 0) * 24px);
+  min-height: 1.8em;
+  margin-top: 4px;
+}
+.qb-tree-node:first-child { margin-top: 0; }
+.qb-tree-node[data-has-edge="1"] { padding-top: 0.7em; }
+.qb-tree-node[data-structure-gap-before="1"] { margin-top: 16px; }
+.qb-tree-node[data-parent]:not([data-has-edge="1"]) > .qb-tree-content { margin-left: 8px; }
+.qb-tree-edge {
+  flex: none;
+  position: relative;
+  top: -0.72em;
+  margin-left: 6px;
+  color: var(--qb-draw-blue);
+  font-size: 0.82em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.qb-tree-content { min-width: 0; }
+.qb-tree-node[data-status="cross"] > .qb-tree-content { opacity: 0.55; }
+.qb-tree-status {
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  overflow: visible;
+}
+.qb-tree-status[data-status="check"] {
+  width: 28px;
+  height: 28px;
+}
+/* 逐项核对选项（v12）：打叉或划掉的选项变淡。 */
+.doc-choice.qb-choice-eliminated { opacity: 0.42; transition: opacity 320ms ease; }
+/* 符号表（v12 signs）：标题行下是一条带刻度的数轴（临界点列画刻度），+ 绿、− 红、0 加粗，↗ ↘ 是斜向箭头。 */
+.qb-grid[data-grid-variant="signs"] .qb-grid-header { position: relative; border-bottom: 1.6px solid var(--ink) !important; }
+.qb-grid[data-grid-variant="signs"] .qb-grid-header[data-sign-column="point"]::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 1.6px; height: 9px; background: var(--ink);
+}
+.qb-grid[data-grid-variant="signs"] [data-sign-column="point"] { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.qb-grid[data-grid-variant="signs"] .qb-grid-cell[data-sign="plus"] .qb-grid-content { color: #239b38; font-weight: 600; }
+.qb-grid[data-grid-variant="signs"] .qb-grid-cell[data-sign="minus"] .qb-grid-content { color: #d63b32; font-weight: 600; }
+.qb-grid[data-grid-variant="signs"] .qb-grid-cell[data-sign="zero"] .qb-grid-content { font-weight: 700; }
+.qb-sign-arrow { width: 2.4em; height: 1.2em; overflow: visible; vertical-align: middle; }
+.qb-sign-arrow path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.qb-grid-cell[data-sign-arrow="up"] .qb-grid-content { color: #239b38; }
+.qb-grid-cell[data-sign-arrow="down"] .qb-grid-content { color: #d63b32; }
+/* 数阵（v12 triangle）：各行居中，相邻行自然错开半格；格子是浅框方格。 */
+.qb-grid-triangle { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.qb-grid-trow { display: flex; justify-content: center; gap: 4px; }
+.qb-grid-triangle .qb-grid-cell {
+  width: var(--qb-grid-cell-w, 2.6em); min-height: 1.9em; display: flex; align-items: center; justify-content: center;
+  border: 1.2px solid color-mix(in srgb, var(--ink) 35%, transparent); border-radius: 6px;
+}
+/* 分类讨论（v12，board-draw-v12.md §2）：分支图。依据是一张卡片（下方可带范围条），手绘分支取各类的颜色分到各类卡片，
+   各类卡片里是条件（落在分支末端）、过程与 ⇒ 结论，再汇合到汇总卡片。放得下时各类并排、依据与汇总居中；放不下时竖排，
+   依据在左上、一条竖线向下、横线分进各类（像分类树）。✗ 的一类整类变淡、条件划掉；正在写或被指着的一类以外变淡。 */
+.qb-cases { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding: 2px 4px 8px 2px; }
+.qb-cases[data-cases-layout="columns"] { align-items: center; }
+.qb-cases-title, .qb-cases-merge {
+  padding: 5px 14px;
+  border: 1.6px solid color-mix(in srgb, var(--ink) 55%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 4%, var(--paper));
+  font-weight: 600;
+}
+.qb-cases-title { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.qb-cases-title:has(.qb-case-content:empty):not(.qb-cases-title-strip) { visibility: hidden; height: 0; padding: 0; border: 0; }
+.qb-cases-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; margin-top: 18px;
+  padding-left: 34px; box-sizing: border-box; }
+.qb-cases[data-cases-layout="measure"] .qb-case { width: max-content; }
+.qb-cases[data-cases-layout="columns"] .qb-cases-body {
+  grid-template-columns: repeat(var(--qb-case-count, 2), minmax(0, 1fr)); gap: 18px; margin-top: 34px; padding-left: 0;
+}
+.qb-case {
+  --qb-case-color: var(--qb-draw-blue);
+  border: 1.6px solid color-mix(in srgb, var(--qb-case-color) 70%, transparent);
+  border-radius: 12px;
+  padding: 6px 10px 8px;
+  background: color-mix(in srgb, var(--qb-case-color) 6%, var(--paper));
+  transition: opacity 220ms ease, box-shadow 220ms ease;
+}
+.qb-case-unit { display: flex; align-items: baseline; gap: 6px; min-height: 1.6em; }
+.qb-case-head { flex-wrap: wrap; margin-bottom: 4px; padding-bottom: 4px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--qb-case-color) 45%, transparent); }
+.qb-case-condition {
+  padding: 0 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--qb-case-color) 16%, transparent);
+  color: var(--qb-case-color);
+  font-weight: 600;
+}
+.qb-case-label { color: var(--muted-ink); font-size: 0.92em; }
+.qb-case-row { padding-left: 2px; }
+.qb-case-outcome { margin-top: 4px; font-weight: 600; }
+.qb-case-arrow { color: var(--qb-case-color); flex: none; }
+.qb-case[data-status="cross"] { opacity: 0.55; }
+.qb-case[data-status="cross"] .qb-case-condition { text-decoration: line-through; }
+.qb-cases-merge { margin-top: 18px; margin-left: 34px; }
+.qb-cases[data-cases-layout="columns"] .qb-cases-merge { margin-top: 34px; margin-left: 0; }
+.qb-structure svg.qb-case-branch { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible;
+  pointer-events: none; visibility: visible; color: color-mix(in srgb, var(--ink) 70%, transparent); }
+.qb-case.qb-case-pointed { box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--qb-case-color) 35%, transparent); }
+.qb-cases:has(.qb-case:is(.qb-case-pointed, .qb-case-writing, .qb-play-highlight-active), .qb-case .qb-play-highlight-active)
+  .qb-case:not(.qb-case-pointed, .qb-case-writing, .qb-play-highlight-active):not(:has(.qb-play-highlight-active)) { opacity: 0.5; }
+/* 各类的序号徽标；依据下方的范围条：条件都是同一个量的取值时，各类占的点或区间按各类的颜色画在一条小数轴上。 */
+.qb-case-badge {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  color: var(--paper); background: var(--qb-case-color); align-self: center;
+}
+.qb-cases-strip { display: block; width: 100%; max-width: 420px; height: 46px; margin: -2px 0 8px; overflow: visible; }
+.qb-cases-strip text { font-size: 12px; fill: var(--muted-ink); }
+/* §9 公式折行：只在顶层关系符前断行，续行缩进 2 字宽；最后才缩放。 */
+.doc-formula mjx-container > mjx-break.qb-formula-nobreak { white-space: nowrap; }
+.qb-formula-wrapped {
+  padding-inline-start: 2em;
+  text-indent: -2em;
+}
+.qb-formula-wrapped * { text-indent: 0; }
+.qb-formula-wrapped .doc-formula mjx-container:not([display="true"]),
+.qb-formula-wrapped-flush .doc-formula mjx-container:not([display="true"]) {
+  /* 公式 SVG 片段之间的断点要进入正文换行流，inline-block 会把整条公式变成不可折行的盒。 */
+  display: inline;
+}
+.qb-formula-scaled { font-size: calc(var(--qb-formula-fit-scale, 1) * 100%); }
+.qb-formula-overflow {
+  overflow-x: auto;
+  max-width: 100%;
+}
+/* 老师批注蓝来自 board-draw.mjs 的笔色（§5），不在运行时样式里写常规蓝（常规蓝只给学生作答）。 */
+.qb-structure { --qb-draw-blue: var(--qb-pen-blue); }
+@media (prefers-color-scheme: dark) {
+  .qb-structure { --qb-draw-blue: #8096ff; }
+}
+
+/* 描画笔尖（v4 §3.4 ③）：墨迹 / 连线 / circumscribe 描画时跟着末端走的小圆点，外圈一道板面色描边以便压在字上可见。 */
+.qb-draw-pen-tip {
+  stroke: var(--surface, #fff);
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+
+/* 老师的笔（board-timeline §3a 随讲指写）：板级笔尖光标，滑到被说到的对象下方、沿下沿划过；位置与透明度由
+   whiteboard 每帧按目标重新投影后写入。颜色取当前外观的蓝色笔色。 */
+.qb-teacher-pen {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border-radius: 50%;
+  background: var(--qb-teacher-pen-color, #2f6fdb);
+  border: 2px solid var(--surface, #fff);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--qb-teacher-pen-color, #2f6fdb) 20%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 8;
+  will-change: transform, opacity;
+}
+
+/* 红框一闪（v4 §3.4 ④）：8 道短线，比墨迹细。 */
+.qb-draw-flash line {
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+/*
+ * 边讲边画课堂（iPad / Web 分栏）的字号层级：白板在平板上隔着一臂距离看，正文 19px；
+ * 离屏测量根同样挂在 #board 下，测量与落板使用同一层级。
+ * 字体按内容分工：题目与板书正文沿用衬线（公式按已校准比例），阶段标题和提示块标题均沿用正文字体。
+ */
+.board-canvas.qb-board-draw {
+  font-size: 19px;
+}
+.qb-board-draw .doc-stage-heading {
+  font-family: inherit;
+  font-size: 1.16em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding-block: 12px 10px;
+  padding-inline-start: 0;
+  --qb-stage-heading-top-padding: 12px;
+}
+/* “关键”徽标跟随标题首行对齐；flex 确保胶囊里的字水平、垂直居中。 */
+.qb-board-draw .doc-stage-heading[data-key-section]::after {
+  top: calc(var(--qb-stage-heading-top-padding) + 1.0227em - 2px);
+  display: inline-flex;
+  width: 3.2em;
+  height: 1.75em;
+  align-items: center;
+  justify-content: center;
+  /* Source Han 字体字面视觉重心略偏上，微调内侧上留白让“关键”看起来居中。 */
+  padding: 2px 0 0;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.qb-board-draw .doc-callout-content {
+  padding: 14px 18px 16px;
+}
+/* 提示块标题不小于正文：沿用正文字体加粗，靠字重和颜色分层级。 */
+.qb-board-draw .doc-callout-title {
+  font-family: var(--board-font-sans);
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0 0 8px;
+}
+/* 结构块上下留白：表格、推导链、树与前后正文分开（padding 计入测量高度）。 */
+.qb-board-draw .doc-positioned-block > .qb-structure,
+.qb-board-draw .doc-measure-item > [data-wb-block="1"] > .qb-structure {
+  padding-block: 10px;
+}
+.qb-board-draw .qb-grid[data-grid-style="table"] .qb-grid-cell {
+  padding: 6px 12px;
+}
+.qb-board-draw .qb-grid[data-grid-style="table"] .qb-grid-header {
+  font-size: 0.95em;
+}
+.qb-board-draw .qb-draw-label {
+  font-size: 18px;
+}
+
+/*
+ * 边讲边画板面主题（board-theme.mjs 管笔色与线宽，这里管强调色与版面细节）：
+ * 题目、板书正文、阶段标题和提示块标题都使用同一套印刷字体；
+ * 强调色取主题蓝，浅色是墨水蓝，深色是粉笔蓝。
+ */
+.board-canvas.qb-board-draw {
+  --qb-draw-accent: #2563d9;
+  --qb-draw-accent-soft: rgba(37, 99, 217, 0.08);
+  --qb-draw-rule: var(--color-line-primary);
+  --qb-draw-table-rule: var(--color-line-primary);
+  --qb-draw-table-head: rgba(31, 26, 20, 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  .board-canvas.qb-board-draw {
+    --qb-draw-accent: #7ea4ff;
+    --qb-draw-accent-soft: rgba(126, 164, 255, 0.12);
+    --qb-draw-rule: var(--color-line-primary);
+    --qb-draw-table-rule: var(--color-line-primary);
+    --qb-draw-table-head: rgba(243, 245, 247, 0.05);
+  }
+}
+/* 阶段标题：主题色圆形序号徽标 + 正文字体标题，细分隔线。 */
+.qb-board-draw .doc-stage-heading {
+  border-bottom-color: var(--qb-draw-rule);
+  color: var(--ink);
+}
+.qb-board-draw .doc-pathway-copy,
+.qb-board-draw .boardcalc-frame-with-parameters .boardcalc-canvas,
+.qb-board-draw .boardcalc-legend-item {
+  border-color: var(--color-line-primary);
+}
+.qb-board-draw .doc-table th,
+.qb-board-draw .doc-table td {
+  border-color: var(--color-line-primary);
+}
+.qb-board-draw .doc-stage-heading[data-stage-index]::before {
+  content: attr(data-stage-index);
+  display: inline-flex;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 0.5em;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--qb-draw-accent);
+  color: var(--paper);
+  font-size: 0.74em;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  vertical-align: 0.16em;
+  box-sizing: border-box;
+}
+.qb-board-draw .doc-callout-pin-icon {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 18px;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.qb-board-draw .doc-callout[data-kind="key"] {
+  background: #FFEFC8;
+}
+.qb-board-draw .doc-callout[data-kind="summary"] {
+  background: rgb(88% 97% 88%);
+}
+.qb-board-draw .doc-callout:is([data-kind="key"], [data-kind="summary"]) {
+  border-radius: 16px;
+}
+.qb-board-draw .doc-callout:is([data-kind="key"], [data-kind="summary"]) .doc-callout-title {
+  font-size: 17px;
+}
+.qb-board-draw .doc-callout:is([data-kind="key"], [data-kind="summary"]) .doc-callout-title {
+  padding-right: 28px;
+}
+/* 右栏布局盒已经含白板坐标与 paint inset，不要再给正文额外叠加 16px 列缩进。 */
+.qb-board-draw .doc-pane-solution {
+  --doc-column-indent: 0px;
+}
+/* 表格：更轻的格线、浅底表头，首行表头与正文同一手写体。 */
+.qb-board-draw .qb-grid[data-grid-style="table"] .qb-grid-header,
+.qb-board-draw .qb-grid[data-grid-style="table"] .qb-grid-cell {
+  border-right-color: var(--qb-draw-table-rule);
+  border-bottom-color: var(--qb-draw-table-rule);
+}
+.qb-board-draw .qb-grid[data-grid-style="table"] .qb-grid-header {
+  background: var(--qb-draw-table-head);
+  color: var(--muted-ink);
+}
+
+/*
+ * 边讲边画：出字像"写"出来——每个字符 / 公式项沿书写方向从左往右擦出，前段带一点淡入；
+ * 字符间错峰（--qb-reveal-unit-ms）连成一条连贯的书写线。字体不变（印刷体），只改显现方式。
+ */
+@keyframes qb-play-reveal-write {
+  0% { opacity: 0.2; clip-path: inset(-35% 100% -35% -4px); }
+  35% { opacity: 1; }
+  100% { opacity: 1; clip-path: inset(-35% -4px -35% -4px); }
+}
+.qb-board-draw .qb-play-reveal-unit,
+.qb-board-draw .qb-play-reveal-math-unit {
+  animation-name: qb-play-reveal-write;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.33, 0.7, 0.45, 1);
+}
+/* 划掉 / 打叉的目标画完后变淡（与树里 ✗ 的节点一致）。 */
+.qb-board-draw .qb-draw-struck {
+  opacity: 0.5;
+  transition: opacity 240ms ease-out;
+}
+
+/* 边讲边画 v9 fade：讲完、不再用的板书变淡（board-draw-v9.md §6）。 */
+.qb-block-faded {
+  opacity: 0.38;
+}
+
+/* 开场提示（“先想一想”，id=opening-hint）：沿用题目内容的留白与字体层级，不加独立卡片底色。 */
+.doc-callout[data-doc-id="opening-hint"] {
+  margin: 2px 0 0;
+  background: none;
+  box-shadow: none;
+  /* runtime 按 pane 原点反算到 16px 边距；此处不再叠加位移。 */
+  transform: none;
+}
+/* 分界线属于讲解区，画在开场提示之后第一个阶段标题的上沿。 */
+.qb-board-draw .doc-positioned-block.qb-opening-explanation-start .doc-stage-heading {
+  box-shadow: inset 0 0.5px 0 var(--color-line-primary);
+  padding-block-start: 18px;
+  --qb-stage-heading-top-padding: 18px;
+}
+/* 提示块的手绘底框若存在，开场提示卡不画。 */
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-content {
+  /* 左边距由 runtime 控制；仅保留右侧留白。 */
+  padding: 0 16px 0 0;
+  border-left: 0;
+  font-family: inherit;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-title {
+  font-family: var(--board-font-sans);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  margin: 0 0 7px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 22px;
+  color: #17171c;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-title-label {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-body {
+  /* 开场提示正文与主内容小节标题共用字体，仅限定此正文区域。 */
+  font-family: var(--board-font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: #27262c;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-list {
+  margin-top: 4px;
+  padding-inline-start: 1.2em;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-list > li {
+  padding-inline-start: 0.08em;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-list > li::marker {
+  color: #897d6c;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-list > li + li {
+  margin-top: 0.3em;
+}
+.qb-opening-preparation-progress {
+  box-sizing: border-box;
+  color: #7f848a;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  pointer-events: auto;
+}
+.qb-opening-preparation-progress[data-flow-placement="pane"] {
+  width: calc(var(--doc-pane-visible-width, 100%) - 32px);
+  margin: 0;
+  margin-left: calc(16px - var(--doc-pane-stage-inline-offset, 0px));
+  /* stage 的空栏起点是 0；把轮询内容放到正式正文起点，保留与标题栏、滚动视口裁剪相同的视觉位置。 */
+  padding-top: calc(var(--doc-split-content-top, 0px) + 8px);
+}
+/* iPad 左右分栏与题干共用顶部起点；手机上下叠放保留原来的 8px 留白。 */
+.doc-fixed-layer:not(.doc-split-stacked) .qb-opening-preparation-progress[data-flow-placement="pane"] {
+  padding-top: var(--doc-split-content-top, 0px);
+}
+.qb-opening-preparation-progress[data-flow-placement="leading"] {
+  width: 100%;
+  margin: 0 0 24px;
+}
+.doc-positioned-block.qb-opening-preparation-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.doc-positioned-block.qb-opening-preparation-flow > .doc-callout {
+  flex: 0 0 auto;
+  height: auto;
+}
+.doc-positioned-block.qb-opening-preparation-flow > .qb-opening-preparation-progress[data-flow-placement="hint"] {
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 24px 0 0;
+}
+.doc-positioned-block.qb-opening-preparation-flow > /* iPad 左右分栏与题干共用顶部起点；手机上下叠放保留原来的 8px 留白。 */
+.doc-fixed-layer:not(.doc-split-stacked) .qb-opening-preparation-progress[data-flow-placement="pane"] {
+  padding-top: var(--doc-split-content-top, 0px);
+}
+.qb-opening-preparation-progress[data-flow-placement="leading"] {
+  flex: 0 0 auto;
+}
+.qb-opening-preparation-hint {
+  margin-bottom: 16px;
+}
+.qb-opening-preparation-heading {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 22px;
+  padding: 0 0 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: #7f848a;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.qb-opening-preparation-title {
+  min-width: 0;
+}
+.qb-opening-preparation-chevron {
+  display: inline-flex;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms ease;
+}
+.qb-opening-preparation-chevron svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+.qb-opening-preparation-progress.is-collapsed .qb-opening-preparation-chevron {
+  transform: rotate(180deg);
+}
+.qb-opening-preparation-divider {
+  height: 0.5px;
+  margin-bottom: 6px;
+  background: var(--color-line-primary);
+}
+.qb-opening-preparation-rows {
+  max-height: 84px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.qb-opening-preparation-rows::-webkit-scrollbar {
+  display: none;
+}
+.qb-opening-preparation-row {
+  box-sizing: border-box;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #45484d;
+  line-height: 28px;
+}
+.qb-opening-preparation-row[data-completed="true"] {
+  color: #7f848a;
+}
+.qb-opening-preparation-label {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qb-opening-preparation-row[data-completed="false"] .qb-opening-preparation-label {
+  color: transparent;
+  background: linear-gradient(90deg, #a0a4a9 0%, #a0a4a9 38%, #4f5358 50%, #a0a4a9 62%, #a0a4a9 100%);
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: qb-opening-preparation-shimmer 1.55s linear infinite;
+}
+/* 收起后的标题用高对比窄光带扫过字形，短标题也能清楚看到等待状态。 */
+.qb-opening-preparation-progress.is-collapsed .qb-opening-preparation-title {
+  display: inline-block;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: linear-gradient(100deg, #7f848a 0%, #7f848a 40%, #f5f6f7 48%, #f5f6f7 52%, #7f848a 60%, #7f848a 100%);
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: qb-opening-preparation-title-shimmer 1.4s linear infinite;
+}
+@keyframes qb-opening-preparation-title-shimmer {
+  to { background-position: 0% 0; }
+}
+.qb-opening-preparation-check,
+.qb-opening-preparation-spinner {
+  box-sizing: border-box;
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.qb-opening-preparation-check svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.qb-opening-preparation-spinner::before {
+  box-sizing: border-box;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(69, 72, 77, 0.22);
+  border-top-color: #45484d;
+  border-radius: 50%;
+  content: "";
+  animation: qb-opening-preparation-spin 700ms linear infinite;
+}
+@keyframes qb-opening-preparation-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes qb-opening-preparation-shimmer {
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qb-opening-preparation-chevron,
+  .qb-opening-preparation-spinner::before,
+  .qb-opening-preparation-progress.is-collapsed .qb-opening-preparation-title,
+  .qb-opening-preparation-row[data-completed="false"] .qb-opening-preparation-label {
+    animation: none;
+    transition: none;
+  }
+  .qb-opening-preparation-progress.is-collapsed .qb-opening-preparation-title,
+  .qb-opening-preparation-row[data-completed="false"] .qb-opening-preparation-label {
+    color: #a0a4a9;
+    -webkit-text-fill-color: currentColor;
+    background: none;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-content {
+    border-left-color: rgba(190, 176, 150, 0.32);
+  }
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-title {
+    color: #a99a80;
+  }
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-body {
+    color: #b3a894;
+  }
+}
+
+/* 提示块图标的尺寸与位置（颜色跟随标题，由提示块样式按 kind 决定）。 */
+.doc-callout-icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.35em;
+  vertical-align: -0.2em;
+}
+.doc-callout-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-icon {
+  box-sizing: border-box;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  vertical-align: middle;
+}
+.doc-callout[data-doc-id="opening-hint"] .doc-callout-icon > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* 主线 App 的浅色开场外观归入共用源后，Web 暗色仍沿用可读的纸面颜色。 */
+@media (prefers-color-scheme: dark) {
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-title,
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-body {
+    color: var(--ink);
+  }
+  .doc-callout[data-doc-id="opening-hint"] .doc-callout-list > li::marker {
+    color: var(--muted-ink);
+  }
+}
+
+/* 长按引用只画外沿，不改变板书尺寸或老师当前的指写效果。 */
+.qb-step-question-enabled .doc-write,
+.qb-step-question-enabled .doc-paragraph,
+.qb-step-question-enabled .doc-derivation,
+.qb-step-question-enabled .doc-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+[data-step-question-selected="true"] {
+  outline: none;
+  border-radius: 0;
+}
+[data-step-question-highlight="true"] { background-color: rgba(0, 72, 255, 0.2) !important; }
+:where(:has(> .qb-step-question-expand)) { position: relative; }
+.qb-step-question-expand {
+  position: absolute;
+  bottom: 100%;
+  left: max(0px, calc(100% - 148px));
+  z-index: 2;
+  width: 124px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.qb-step-question-expand[data-expanded="true"] { width: 46px; height: 46px; pointer-events: none; }
+.qb-step-question-expand[hidden] { display: none; }
+.qb-step-question-expand img { width: 100%; height: 100%; object-fit: contain; }
+.qb-step-question-expand:disabled { opacity: 1; cursor: default; }
+.qb-step-question-expand:focus-visible {
+  outline: 2px solid #0048ff;
+  outline-offset: 2px;
+}
+
+/* 题干摘要沿用“先想一想”正文的字体，覆盖题面副本继承的字体配置。 */
+#board-root .doc-stacked-problem-preview .doc-stacked-problem-copy {
+  font-family: var(--board-font-sans);
+}
+#board-root .doc-stacked-problem-preview .doc-stacked-problem-copy .doc-paragraph {
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 准备期也由白板显示唯一把手，但题面到达前不允许拖动。 */
+.doc-split-stacked.doc-stacked-opening-skeleton .doc-stacked-divider {
+  pointer-events: none;
+}
+
+/* 操作栏收起后的提示属于解答栏内容坐标，随正文一起滚动。 */
+.qb-document-disclaimer {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  padding-top: 8px;
+  font: 400 11px/16px var(--board-font-sans);
+  color: rgba(0, 0, 0, 0.2);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 单一讲解焦点：按内容类型弱化另一处，不依赖上下/左右或设备方向。 */
+[data-lecture-focus="text"] .qb-teacher-pen[data-lecture-target-kind="figure"],
+[data-lecture-focus="figure"] .qb-teacher-pen[data-lecture-target-kind="text"],
+[data-lecture-focus="none"] .qb-teacher-pen { visibility: hidden; }
+[data-lecture-focus="text"] .wb-figure.qb-figure-attention,
+[data-lecture-focus="none"] .wb-figure.qb-figure-attention { animation: none; outline-color: transparent; }
+[data-lecture-focus="figure"] .wb-block:not(.wb-figure) .qb-play-highlight-active,
+[data-lecture-focus="figure"] .wb-block:not(.wb-figure).qb-play-highlight-active,
+[data-lecture-focus="figure"] .wb-block:not(.wb-figure).qb-play-highlight-active > :is(.doc-write, .doc-paragraph, .qb-structure) {
+  background-color: transparent; color: inherit; text-shadow: none; box-shadow: none;
+}
+[data-lecture-focus="figure"] .wb-block:not(.wb-figure) :is(.qb-play-highlight, .qb-draw-pulse) { animation: none; }
+[data-lecture-focus="figure"] [data-draw-emphasis="point"],
+[data-lecture-focus="figure"] [data-draw-emphasis="sweep"],
+[data-lecture-focus="figure"] [data-draw-emphasis="box"],
+[data-lecture-focus="figure"] [data-draw-emphasis="marker"] { opacity: 0.18 !important; }
+[data-lecture-focus="text"] .wb-figure :is(.qb-play-highlight, .qb-draw-pulse),
+[data-lecture-focus="text"] .wb-figure.qb-play-highlight,
+[data-lecture-focus="none"] .wb-figure :is(.qb-play-highlight, .qb-draw-pulse) { animation: none; }
+[data-lecture-focus="text"] .wb-figure .qb-play-highlight-active { filter: none; text-shadow: none; }
+
+
+/* ===== Web 移植补丁 ===== */
+/* 原文依赖画板容器的定位上下文，独立页面里 .doc-callout 没有 position，
+   图钉（absolute）会脱离卡片飞到页面其它位置。这里补回定位上下文。 */
+.doc-callout { position: relative; }
+.doc-callout .doc-callout-pin-icon {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ===== WEB-PORT-STAGE-BADGE =====
+   内核 ya() 每次 renderDoc 会 toggle 掉 qb-board-draw，
+   带该前缀的编号圆点规则随之失效；这里无条件补一份。 */
+.board-canvas .doc-stage-heading[data-stage-index]::before {
+  content: attr(data-stage-index);
+  display: inline-flex; width: 1.5em; height: 1.5em; margin-right: 0.5em;
+  align-items: center; justify-content: center; padding: 0;
+  border-radius: 50%; background: #2563d9; color: #fff;
+  font-size: 0.74em; font-weight: 700; line-height: 1;
+  text-align: center; vertical-align: 0.16em; box-sizing: border-box;
+}

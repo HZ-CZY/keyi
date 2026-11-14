@@ -1,0 +1,22 @@
+Quizboard 主白板离线 MathJax 资源
+
+固定版本：MathJax 4.1.3、@mathjax/mathjax-stix2-font 4.1.3、@mathjax/mathjax-fira-font 4.1.3。
+来源：各包的官方 npm tarball；版本、URL、SHA-512 和逐文件 SHA-256 见 manifest.json。
+许可：三个 npm 包均声明 Apache-2.0，完整许可文本见 LICENSE；保留原始 JavaScript 内容。
+MathJax 项目：https://github.com/mathjax/MathJax
+字体数据项目：https://github.com/mathjax/MathJax-fonts
+
+资源范围：MathJax 的 tex-svg.js 与 input/tex/extensions/ 下的全部 TeX 扩展；
+两套字体各自的 svg.js 与 svg/ 下的全部 SVG 字形和动态分片；
+sre/ 下的语音 Worker 及语言映射也完整内置，避免 MathJax 启动等待外网。
+另外包含 Fira 的 normal、bold、italic、bold-italic 四份 WOFF2，供 board-fonts.css 的 BoardFira 正文样式使用；
+来自上述固定字体包的 chtml/woff2/，逐文件摘要同样登记，避免原 CDN 引用被离线宿主 CSP 拦截。
+不包含未使用的 CommonHTML 输出和开发用 Source Map；其他正文字体继续由 fonts/ 提供。
+
+加载约定：主白板、讲解导出、Web 工作台、绘图回放、iOS / 安卓字幕与追问对话都从本地 tex-svg.js 加载，
+全端只有这一份 MathJax；服务端公式校验（formula_check/vendor/mathjax）取自同一 tarball。
+mathjax-config.js 为 STIX2 / Fira 指定本地字体目录，动态字形不访问 CDN。
+
+更新步骤：从官方 npm 下载固定版本，用 manifest.json 的包摘要核对原始 tarball，
+更新上述浏览器资源与逐文件摘要，再运行 quizboard_scripts/sync_web_runtime.py --sync。
+验收必须阻断外部网络，覆盖正文、图形标签、TeX 扩展、动态字形及两套字体往返切换。

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="board-chat.css">
+  <link rel="stylesheet" href="/quizboard/board-fonts.css">
+  <script src="/quizboard/mathjax-config.js"></script>
+  <script>
+    MathJax.tex.displayMath = [["$$", "$$"], ["\\[", "\\]"]];
+    // 与原 MathJax 3 页面一致不附加无障碍副本：关闭 MathJax 4 默认的语义补充、语音、盲文与 Tab 聚焦。
+    // MathJax 4 启动时按菜单设置重写这些文档选项（即使不显示菜单），所以写在 menuOptions.settings。
+    MathJax.options.menuOptions = { settings: { enrich: false, speech: false, braille: false, inTabOrder: false } };
+    MathJax.options.skipHtmlTags = ["script", "noscript", "style", "textarea", "pre", "code"];
+    MathJax.svg.fontCache = "none";
+  </script>
+  <script src="/quizboard/vendor/mathjax4/tex-svg.js"></script>
+</head>
+<body>
+  <main id="messages" aria-live="polite"></main>
+  <script type="module" src="board-chat.mjs"></script>
+</body>
+</html>

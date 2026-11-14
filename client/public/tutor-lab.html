@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#ffffff" />
+<title>刻忆 · 拍一道题，一步步讲明白</title>
+<link rel="icon" href="/brain.svg" type="image/svg+xml" />
+<style>
+  :root {
+    --ink: #17181c;
+    --ink-2: #4a4e56;
+    --muted: #8d9198;
+    --faint: #b8bbc2;
+    --line: #e9eaee;
+    --blue: #2f7bff;
+    --red: #ff4d5f;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+            "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #fff; color: var(--ink); font-family: var(--font);
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  svg { display: block; }
+
+  /* ── 顶部左侧：返回 / 历史 ────────────────────────────────────── */
+  #back-btn, #side-btn {
+    position: fixed; top: 20px; z-index: 40;
+    width: 38px; height: 38px; border: 0; border-radius: 12px;
+    background: #f6f7f9; color: #4a4e56;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .18s, transform .18s;
+  }
+  #back-btn { left: 22px; }
+  #side-btn { left: 68px; }
+  #back-btn:hover, #side-btn:hover { background: #eceef3; }
+  #back-btn:active, #side-btn:active { transform: scale(.95); }
+  #back-btn svg { width: 19px; height: 19px; }
+  #side-btn svg { width: 19px; height: 19px; }
+
+  /* ── 右上：开启新对话 ─────────────────────────────────────────── */
+  #new-chat {
+    position: fixed; top: 20px; right: 22px; z-index: 40;
+    height: 38px; padding: 0 15px; border: 0; border-radius: 12px;
+    background: #f6f7f9; color: #3f434a;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; letter-spacing: .01em;
+    transition: background .18s, transform .18s;
+  }
+  #new-chat:hover { background: #eceef3; }
+  #new-chat:active { transform: scale(.97); }
+  #new-chat svg { width: 16px; height: 16px; }
+
+  /* ── 历史抽屉 ─────────────────────────────────────────────────── */
+  #drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+    width: min(300px, 82vw); background: #fff;
+    border-right: 1px solid var(--line); box-shadow: 8px 0 40px rgba(20,24,40,.08);
+    transform: translateX(-105%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+  }
+  #drawer.open { transform: translateX(0); }
+  .drawer-head { padding: 24px 20px 14px; display: flex; align-items: center; gap: 10px; }
+  .drawer-head img { width: 26px; height: 26px; }
+  .drawer-head b { font-size: 15px; font-weight: 700; }
+  .drawer-head button {
+    margin-left: auto; width: 30px; height: 30px; border: 0; border-radius: 9px;
+    background: #f5f6f8; color: #6b7079; font-size: 17px; line-height: 1;
+  }
+  .drawer-sub { padding: 0 20px 12px; font-size: 12px; color: var(--faint); }
+  #drawer-list { flex: 1; overflow-y: auto; padding: 4px 12px 20px; }
+  .hist {
+    width: 100%; display: flex; gap: 10px; align-items: center; text-align: left;
+    padding: 10px; border: 1px solid transparent; border-radius: 13px; background: transparent;
+    transition: background .16s, border-color .16s;
+  }
+  .hist:hover { background: #f7f8fb; border-color: var(--line); }
+  .hist img { width: 40px; height: 40px; border-radius: 9px; object-fit: cover; background: #f2f3f6; flex: none; }
+  .hist-txt { flex: 1; min-width: 0; }
+  .hist-txt b { display: block; font-size: 13px; font-weight: 600; }
+  .hist-txt small { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+  .hist-dot { width: 7px; height: 7px; border-radius: 50%; background: #d5d8de; flex: none; }
+  .hist-dot.s-done { background: #35b57c; }
+  .hist-dot.s-running, .hist-dot.s-queued { background: var(--blue); }
+  .hist-dot.s-failed, .hist-dot.s-canceled { background: #e08a80; }
+  .drawer-empty { padding: 24px 10px; font-size: 12.5px; color: var(--faint); text-align: center; }
+  #drawer-mask {
+    position: fixed; inset: 0; z-index: 45; background: rgba(20,24,40,.18);
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  #drawer-mask.on { opacity: 1; pointer-events: auto; }
+
+  /* ── 主舞台 ───────────────────────────────────────────────────── */
+  #stage {
+    position: fixed; inset: 0 0 172px 0; overflow-y: auto;
+    overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  #stage::-webkit-scrollbar { width: 7px; }
+  #stage::-webkit-scrollbar-thumb { background: #e5e7ec; border-radius: 99px; }
+
+  #hero {
+    min-height: 100%; padding: clamp(120px, 30vh, 260px) 20px 40px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: opacity .3s ease;
+  }
+  #hero[hidden] { display: none; }
+  .hero-block { width: max-content; max-width: 86vw; }
+  .title { position: relative; font-weight: 800; letter-spacing: .015em; line-height: 1.75; }
+  .title-line { font-size: clamp(19px, 1.75vw, 24px); white-space: nowrap; }
+  .title-line.first { position: relative; display: inline-block; }
+  .title-arc {
+    position: absolute; left: -5%; bottom: -2px; width: 130%; height: 16px;
+    pointer-events: none; overflow: visible;
+  }
+  .beta {
+    display: inline-flex; align-items: center; margin-left: 11px; padding: 1px 8px 2px;
+    border: 1.4px solid #b9bdc3; border-radius: 7px;
+    font-size: 11px; font-weight: 800; font-style: italic; letter-spacing: .07em;
+    color: #4a4d53; transform: skew(-11deg) rotate(-2deg); vertical-align: 3px;
+  }
+  .subtitle {
+    margin-top: 15px; font-size: clamp(13px, 1.28vw, 16px);
+    color: var(--muted); letter-spacing: .02em; white-space: nowrap;
+  }
+  .subtitle em { color: var(--red); font-style: normal; font-weight: 500; }
+  .sample-link {
+    margin-top: 23px; display: inline-flex; align-items: center; gap: 7px;
+    border: 0; background: transparent; padding: 0;
+    font-size: 12.5px; color: #a1a5ac;
+  }
+  .sample-link span { text-decoration: underline; text-underline-offset: 3px; }
+  .sample-link svg { width: 15px; height: 15px; }
+  .sample-link:hover { color: var(--blue); }
+
+  /* ── 对话流 ───────────────────────────────────────────────────── */
+  #thread {
+    width: min(720px, 90vw); margin: 0 auto; padding: 26px 0 30px;
+    display: flex; flex-direction: column; gap: 28px;
+  }
+  #thread[hidden] { display: none; }
+  .group { display: flex; flex-direction: column; gap: 12px; }
+  .group-time { text-align: center; font-size: 11px; color: #c0c3c9; margin-bottom: 2px; }
+  .msg-user { display: flex; justify-content: flex-end; }
+  .msg-ai { display: flex; align-items: flex-start; gap: 10px; }
+  .avatar {
+    width: 34px; height: 34px; flex: none; border-radius: 50%;
+    background: #f4f2ff; border: 1px solid #eae6ff; padding: 2px;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: contain; }
+  .bubble {
+    background: #fff; border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 4px 18px rgba(20,24,40,.045); font-size: 14px; line-height: 1.62;
+  }
+  .bubble.user { padding: 7px; max-width: 300px; }
+  .bubble.user img {
+    display: block; max-width: 282px; max-height: 220px; border-radius: 12px;
+    object-fit: cover; background: #f3f4f7; cursor: zoom-in;
+  }
+  .bubble.ai { padding: 14px 16px; min-width: 268px; max-width: 470px; border-top-left-radius: 6px; }
+
+  .q-main { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+  .q-sub { margin-top: 5px; font-size: 13px; color: var(--muted); }
+  .agent-line {
+    margin-top: 15px; display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--ink-2);
+  }
+  .spinner {
+    width: 13px; height: 13px; border-radius: 50%; flex: none;
+    border: 2px solid #dce6fb; border-top-color: var(--blue);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .typing { display: inline-flex; gap: 3px; margin-left: 2px; }
+  .typing i { width: 4px; height: 4px; border-radius: 50%; background: #9aa0aa; animation: blink 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .2s; }
+  .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .3 } 30% { opacity: 1 } }
+  .bar { height: 5px; border-radius: 99px; background: #eef0f4; margin-top: 12px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: var(--blue); transition: width .55s ease; }
+  .bar-meta { margin-top: 6px; text-align: right; font-size: 11px; color: #a6aab2; }
+  .cancel-btn {
+    margin-top: 10px; border: 0; background: transparent; padding: 0;
+    font-size: 12px; color: #a1a5ac; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .cancel-btn:hover { color: #e0665c; }
+
+  .done-title { font-size: 15px; font-weight: 700; }
+  .video-box {
+    margin-top: 12px; border-radius: 12px; overflow: hidden;
+    background: #101216; width: min(440px, 100%);
+  }
+  .video-box video { display: block; width: 100%; max-height: 300px; background: #101216; }
+  .video-meta { margin-top: 9px; font-size: 11.5px; color: #9a9ea7; }
+  .dl-btn {
+    margin-top: 11px; display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px;
+    background: #fafbfe; color: var(--blue); font-size: 13px; font-weight: 600;
+    text-decoration: none;
+  }
+  .dl-btn:hover { background: #f0f5ff; border-color: #cddcff; }
+  .dl-btn svg { width: 14px; height: 14px; }
+  .bubble.fail { color: #8a5b55; }
+  .bubble.fail .q-main { color: #b4554a; }
+
+  /* ── 底部输入卡片 ─────────────────────────────────────────────── */
+  #composer-wrap {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 0 0 14px; pointer-events: none;
+    background: linear-gradient(to top, #fff 72%, rgba(255,255,255,0));
+  }
+  #composer { width: min(662px, 62vw); margin: 0 auto; pointer-events: auto; }
+  .tabs { display: flex; height: 36px; align-items: flex-end; padding-left: 10px; }
+  .tab {
+    height: 34px; min-width: 116px; padding: 0 16px; border: 0;
+    border-radius: 13px 13px 0 0; display: inline-flex; align-items: center;
+    justify-content: center; gap: 7px; font-size: 12.5px; font-weight: 600;
+    color: #8b8f96; background: #eeeff1;
+  }
+  .tab svg { width: 15px; height: 15px; }
+  .tab.active { background: #fff; color: var(--ink); box-shadow: 0 -3px 14px rgba(20,24,40,.045); }
+  .card {
+    position: relative; background: #fff; border-radius: 22px;
+    box-shadow: 0 6px 30px rgba(20,24,40,.075), 0 1px 3px rgba(20,24,40,.035);
+    padding: 17px 22px 14px; min-height: 128px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .fake-input {
+    font-size: 14.5px; color: #c4c7cd; letter-spacing: .01em;
+    cursor: default; user-select: none; min-height: 22px;
+  }
+  .tools { display: flex; align-items: center; gap: 17px; margin-top: 14px; }
+  .tool {
+    width: 24px; height: 24px; border: 0; background: transparent; padding: 0;
+    color: #1d1f24; display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, opacity .15s;
+  }
+  .tool svg { width: 21px; height: 21px; }
+  .tool:hover { transform: translateY(-1px); }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .tool.right { margin-left: auto; }
+  .send-wrap { margin-left: 12px; }
+  .send {
+    width: 32px; height: 32px; border: 0; border-radius: 50%;
+    background: #e4e6ea; color: #fff; display: flex; align-items: center;
+    justify-content: center; transition: background .2s, transform .15s;
+  }
+  .send svg { width: 17px; height: 17px; }
+  .send.ready { background: var(--blue); box-shadow: 0 4px 12px rgba(47,123,255,.3); }
+  .send.ready:hover { transform: translateY(-1px); }
+  .send.busy { background: #9db9f5; }
+  .send:disabled { cursor: default; }
+
+  #pending {
+    display: flex; align-items: center; gap: 10px; margin: 2px 0 10px;
+  }
+  #pending[hidden] { display: none; }
+  #pending img {
+    width: 54px; height: 54px; object-fit: cover; border-radius: 10px;
+    border: 1px solid var(--line); background: #f3f4f7;
+  }
+  #pending .p-txt { font-size: 12.5px; color: var(--muted); }
+  #pending .p-txt b { display: block; color: var(--ink-2); font-weight: 600; font-size: 13px; }
+  #pending .p-del {
+    margin-left: auto; width: 26px; height: 26px; border: 0; border-radius: 8px;
+    background: #f4f5f7; color: #7c818a; font-size: 15px; line-height: 1;
+  }
+  .disclaimer { margin-top: 11px; text-align: center; font-size: 10.5px; color: #c9ccd2; letter-spacing: .04em; }
+
+  /* ── 提示 / 样题弹层 / 图片放大 ───────────────────────────────── */
+  #toast {
+    position: fixed; left: 50%; bottom: 190px; transform: translate(-50%, 10px);
+    z-index: 80; padding: 10px 18px; border-radius: 12px;
+    background: rgba(30,33,40,.92); color: #fff; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: opacity .22s, transform .22s;
+    max-width: 80vw; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .modal {
+    position: fixed; inset: 0; z-index: 90; background: rgba(20,24,40,.42);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal[hidden] { display: none; }
+  .modal-card {
+    width: min(600px, 92vw); background: #fff; border-radius: 20px; padding: 22px;
+    box-shadow: 0 24px 70px rgba(20,24,40,.24);
+  }
+  .modal-head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  .modal-head img { width: 24px; height: 24px; }
+  .modal-head b { font-size: 15px; }
+  .modal-head button {
+    margin-left: auto; border: 0; background: #f4f5f7; color: #6b7079;
+    width: 28px; height: 28px; border-radius: 8px; font-size: 16px; line-height: 1;
+  }
+  .modal-card video { width: 100%; max-height: 60vh; border-radius: 12px; background: #101216; display: block; }
+  .modal-tip { margin-top: 12px; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+
+  @media (max-width: 720px) {
+    #composer { width: calc(100% - 28px); }
+    #stage { bottom: 178px; }
+    .card { padding: 15px 16px 12px; min-height: 122px; }
+    .tab { min-width: 100px; padding: 0 12px; }
+    .bubble.ai { min-width: 0; max-width: calc(100% - 44px); }
+    .bubble.user img { max-width: 220px; }
+    .subtitle { white-space: normal; }
+    #back-btn { top: 14px; left: 14px; }
+    #side-btn { top: 14px; left: 58px; }
+    #new-chat { top: 14px; right: 14px; height: 36px; padding: 0 12px; font-size: 12.5px; }
+  }
+</style>
+</head>
+<body>
+
+<button id="back-btn" title="返回首页" aria-label="返回首页">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.5 5.5 8 12l6.5 6.5"/>
+  </svg>
+</button>
+
+<button id="side-btn" title="历史记录" aria-label="历史记录">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9.5 4v16"/>
+  </svg>
+</button>
+
+<button id="new-chat" title="开启新对话">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>开启新对话
+</button>
+
+<div id="drawer-mask"></div>
+<aside id="drawer">
+  <div class="drawer-head">
+    <img src="/brain.svg" alt="刻忆" />
+    <b>刻忆 · 讲题记录</b>
+    <button id="drawer-close" aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-sub">拍过的题和讲好的视频都在这里</div>
+  <div id="drawer-list"></div>
+</aside>
+
+<main id="stage">
+  <section id="hero">
+    <div class="hero-block">
+      <div class="title">
+        <span class="title-line first">拍一道数学题
+          <svg class="title-arc" viewBox="0 0 320 18" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M2 17 C 82 4, 196 -1, 318 5" fill="none" stroke="#2b7bff" stroke-width="2.1" stroke-linecap="round"/>
+          </svg>
+        </span><br />
+        <span class="title-line">一步步讲明白 <span class="beta"><span>BETA</span></span></span>
+      </div>
+      <div class="subtitle">从拍题到完整讲解，预计共<em>2–3分钟</em></div>
+      <button class="sample-link" id="sample-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9.2"/><path d="M10.2 8.6 15.4 12l-5.2 3.4z"/>
+        </svg>
+        <span>查看样题</span>
+      </button>
+    </div>
+  </section>
+  <div id="thread" hidden></div>
+</main>
+
+<section id="composer-wrap">
+  <div id="composer">
+    <div class="tabs">
+      <button class="tab active" id="tab-question">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.2" cy="6.9" r="1" fill="currentColor" stroke="none"/>
+        </svg>题目答疑
+      </button>
+      <button class="tab" id="tab-homework">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="M13.5 6.5 17.5 10.5"/><path d="M4 21h16"/>
+        </svg>批改作业
+      </button>
+    </div>
+    <div class="card">
+      <div>
+        <div class="fake-input" id="fake-input">输入题目、知识点或你的想法</div>
+        <div id="pending" hidden>
+          <img id="pending-img" alt="待发送题目" />
+          <div class="p-txt"><b>题目已框选好</b>点右下角箭头发给刻忆</div>
+          <button class="p-del" id="pending-del" aria-label="移除">×</button>
+        </div>
+      </div>
+      <div class="tools">
+        <button class="tool" id="btn-camera" title="拍照">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.4"/><circle cx="17.3" cy="6.9" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <button class="tool" id="btn-gallery" title="从相册选择">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="3.5"/><circle cx="8.5" cy="9.2" r="1.3"/><path d="m4 17 4.7-4.7a1.6 1.6 0 0 1 2.3 0l3 3 2-2a1.6 1.6 0 0 1 2.3 0L20 15"/>
+          </svg>
+        </button>
+        <button class="tool right" id="btn-mic" title="语音（暂未开放）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2.8" width="6" height="11.5" rx="3"/><path d="M5.8 11.5a6.2 6.2 0 0 0 12.4 0M12 17.7V21M9 21h6"/>
+          </svg>
+        </button>
+        <div class="send-wrap">
+          <button class="send" id="btn-send" disabled title="发送题目图片">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19V5M6 11l6-6 6 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="disclaimer">内容均为 AI 生成</div>
+</section>
+
+<input type="file" id="file-camera" accept="image/*" capture="environment" hidden />
+<input type="file" id="file-gallery" accept="image/*" hidden />
+<div id="toast"></div>
+
+<div class="modal" id="sample-modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <img src="/brain.svg" alt="刻忆" /><b>看看一次完整讲解</b>
+      <button id="sample-close" aria-label="关闭">×</button>
+    </div>
+    <div id="sample-body"></div>
+  </div>
+</div>
+
+<div class="modal" id="image-modal" hidden>
+  <div class="modal-card" style="width:min(760px,92vw);padding:14px">
+    <div class="modal-head" style="margin-bottom:8px">
+      <b>你拍的题目</b><button id="image-close" aria-label="关闭">×</button>
+    </div>
+    <img id="image-big" src="" alt="题目大图" style="display:block;width:100%;max-height:70vh;object-fit:contain;border-radius:10px;background:#f5f6f8" />
+  </div>
+</div>
+
+<script type="module" src="/tutor-lab/app.mjs?v=20261112v"></script>
+</body>
+</html>

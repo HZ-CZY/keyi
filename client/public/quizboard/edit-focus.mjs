@@ -1,0 +1,1 @@
+export function editFocusMarks(e,{ids:o=new Set,selected:t=""}={}){const r=e.map(({id:e})=>e&&e===t?"selected":e&&o.has(e)?"scope":"");return r.some(Boolean)?(r.forEach((o,t)=>{if("selected"===o||"scope"===o)for(let o=e[t].parent;o>=0;o=e[o].parent)r[o]||(r[o]="owner")}),e.forEach(({parent:e},o)=>{!r[o]&&(e<0||"owner"===r[e])&&(r[o]="dim")}),r):r}
