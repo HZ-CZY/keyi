@@ -559,11 +559,16 @@ const DAILY_RAID_MAX = 12;
  */
 const DAILY_PVP_ATTACK_MAX = 2;
 /**
- * 进攻次数豁免名单（2026-11-14 按需求）：名单内的账号不受 DAILY_PVP_ATTACK_MAX 限制。
+ * 进攻次数豁免名单：名单内的账号不受 DAILY_PVP_ATTACK_MAX 限制。
  * 只作用于名单内的**进攻方**，机制与防守侧 WEEKLY_DEFENSE_CAP_EXEMPT 一致。
  * ⚠️ 仅用于测试号；总场次 DAILY_RAID_MAX 仍然生效。
+ *
+ * 【2026-11-15 清空】原先挂着 9029（蔡东林），是真实玩家账号而非测试号，
+ * 导致该号每天可无限次进攻真人。反馈 476（何文辉）投诉的「管理员无限兵力
+ * 打普通玩家」即由此引起（实测该号并非管理员，只是享有进攻豁免）。
+ * 现改为空名单：所有账号一律受 DAILY_PVP_ATTACK_MAX = 2 约束。
  */
-const PVP_ATTACK_EXEMPT = new Set([9029]);
+const PVP_ATTACK_EXEMPT = new Set<number>([]);
 const pvpAttackMaxOf = (uid: number) =>
     PVP_ATTACK_EXEMPT.has(Number(uid)) ? 999999 : DAILY_PVP_ATTACK_MAX;
 /**
@@ -579,8 +584,11 @@ const WEEKLY_DEFENSE_CAP = 10;
  * 不受「每周被攻打上限」约束的账号。
  * 只作用于名单内的**防守方**：名单外的人仍按 WEEKLY_DEFENSE_CAP 拦截。
  * 用途：玩家自己测试防守阵型，希望被反复攻打。
+ *
+ * 【2026-11-15 清空】原因同上：9029 是真实玩家，不是测试号。
+ * 若将来真需要测试，请新建专用测试账号并把 id 加进这里，不要挂真实玩家。
  */
-const WEEKLY_DEFENSE_CAP_EXEMPT = new Set([9029]);
+const WEEKLY_DEFENSE_CAP_EXEMPT = new Set<number>([]);
 const weeklyDefenseCapOf = (uid: number) =>
     WEEKLY_DEFENSE_CAP_EXEMPT.has(Number(uid)) ? 999999 : WEEKLY_DEFENSE_CAP;
 /**
@@ -2328,7 +2336,7 @@ function pickOpponents(db, me, myTh, now, newbieAfter) {
            计数只认真人 PVP；NPC 演练是玩家自己选的，不算「被打」。 */
         AND (SELECT COUNT(*) FROM village_battles b
              WHERE b.defender_id = p.user_id AND b.mode = 'pvp' AND b.day >= ?)
-            < (CASE WHEN p.user_id IN (9029) THEN 999999 ELSE ? END)
+            < ?
         ${NOT_DAMAGED_SQL}
       ORDER BY RANDOM() LIMIT ?
     `).all(DEFENDER_DAILY_LOSS_CAP, me, now, MIN_BUILDINGS_TO_BE_TARGET, newbieAfter, now, me, now - SAME_TARGET_COOLDOWN_SEC, weekStart, WEEKLY_DEFENSE_CAP, 8);
